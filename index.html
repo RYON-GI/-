@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>엔드필드 기질 옵션</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+  body { background:#111; color:#eee; font-family: monospace; margin:20px; }
+  button { margin-bottom:10px; }
+  .wrap { display:flex; gap:30px; align-items:flex-start; }
+  canvas { border:1px solid #555; }
+  .panel { min-width:340px; }
+  h3 { margin:8px 0; }
+  pre { background:#000; padding:10px; min-height:80px; white-space:pre-wrap; overflow-x:auto; font-size:20px; }
+  label { margin-right:15px; }
+</style>
+</head>
+<body>
+
+<h2>명일방주: 엔드필드 기질 옵션</h2>
+
+<button id="share">화면 공유 시작</button>
+<label>
+  <input type="checkbox" id="use5"> 5성 포함
+</label>
+<label>
+  <input type="checkbox" id="show2"> 2옵션 보기
+</label>
+
+<div class="wrap">
+  <div>
+    <h3>인식 영역</h3>
+    <canvas id="crop"></canvas>
+  </div>
+
+  <div class="panel">
+    <h3>인식된 옵션</h3>
+    <pre id="options"></pre>
+
+    <h3>6성 무기</h3>
+    <pre id="result6"></pre>
+
+    <h3 id="title5" style="display:none">5성 무기</h3>
+    <pre id="result5" style="display:none"></pre>
+  </div>
+</div>
+
+<script>
+const OPTION_BOX_RATIO = { x:0.7700, y:0.3280, w:0.1020, h:0.1660 };
+
+// ================== 원본 DB 그대로 ==================
+const WEAPONS_6 = [
+  {name:"과거의 일품", opts:["의지","생명력","효율"]},
+  {name:"기사도 정신", opts:["의지","생명력","의료"]},
+  {name:"끝없는 방랑", opts:["의지","공격력","흐름"]},
+  {name:"망각", opts:["지능","아츠 피해","어둠"]},
+  {name:"모범", opts:["주요 능력치","공격력","억제"]},
+  {name:"바다와 별의 꿈", opts:["지능","치유 효율","고통"]},
+  {name:"백야의 별", opts:["주요 능력치","아츠 강도","고통"]},
+  {name:"부요", opts:["주요 능력치","치명타 확률","어둠"]},
+  {name:"분쇄의 군주", opts:["힘","치명타 확률","분쇄"]},
+  {name:"사명의 길", opts:["의지","궁극기 획득 효율","추격"]},
+  {name:"산의 지배자", opts:["민첩","물리 피해","효율"]},
+  {name:"쐐기", opts:["주요 능력치","치명타 확률","고통"]},
+  {name:"암흑의 횃불", opts:["지능","열기 피해","고통"]},
+  {name:"예술의 폭군", opts:["지능","치명타 확률","골절"]},
+  {name:"용사", opts:["민첩","물리 피해","기예"]},
+  {name:"용조의 불꽃", opts:["지능","공격력","어둠"]},
+  {name:"위대한 이름", opts:["주요 능력치","물리 피해","잔혹"]},
+  {name:"작품: 침식 흔적", opts:["의지","자연 피해","억제"]},
+  {name:"장대한 염원", opts:["민첩","공격력","고통"]},
+  {name:"천둥의 흔적", opts:["힘","생명력","의료"]},
+  {name:"클래니벌", opts:["주요 능력치","아츠 강도","고통"]},
+  {name:"테르밋 커터", opts:["의지","공격력","흐름"]},
+  {name:"폭발 유닛", opts:["주요 능력치","아츠 강도","방출"]},
+  {name:"항로의 개척자", opts:["지능","냉기 피해","고통"]},
+  {name:"헤라펜거", opts:["힘","공격력","방출"]},
+  {name:"J.E.T", opts:["주요 능력치","공격력","억제"]}
+];
+
+const WEAPONS_5 = [
+  {name:"강철의 여운", opts:["민첩","물리 피해","기예"]},
+  {name:"검은 추적자", opts:["힘","궁극기 획득 효율","방출"]},
+  {name:"고대의 강줄기", opts:["힘","아츠 강도","잔혹"]},
+  {name:"린수를 찾아서 3.0", opts:["힘","냉기 피해","억제"]},
+  {name:"망자의 노래", opts:["지능","공격력","어둠"]},
+  {name:"무가내하", opts:["의지","궁극기 획득 효율","사기"]},
+  {name:"불사의 성주", opts:["지능","궁극기 획득 효율","사기"]},
+  {name:"선교의 자유", opts:["의지","치유 효율","의료"]},
+  {name:"숭배의 시선", opts:["민첩","물리 피해","어둠"]},
+  {name:"십이문", opts:["민첩","공격력","고통"]},
+  {name:"이상적인 작별", opts:["힘","열기 피해","추격"]},
+  {name:"작품: 중생", opts:["민첩","아츠 강도","고통"]},
+  {name:"중심력", opts:["의지","전기 피해","억제"]},
+  {name:"최후의 메아리", opts:["힘","생명력","의료"]},
+  {name:"키메라의 정의", opts:["힘","궁극기 획득 효율","잔혹"]},
+  {name:"황무지의 방랑자", opts:["지능","전기 피해","고통"]},
+  {name:"O.B.J 벨로시투스", opts:["민첩","궁극기 획득 효율","방출"]},
+  {name:"O.B.J 스파이크", opts:["의지","물리 피해","고통"]},
+  {name:"O.B.J 아츠 아이덴티티", opts:["지능","아츠 강도","추격"]},
+  {name:"O.B.J 엣지 오브 라이트", opts:["민첩","공격력","흐름"]},
+  {name:"O.B.J 헤비 버든", opts:["힘","생명력","효율"]}
+];
+
+// ================== OCR ==================
+let video, stream;
+const crop = document.getElementById("crop");
+const ctx = crop.getContext("2d");
+
+function normalize(line){
+  line = line.replace(/[ㅇ"'#\/\d]/g,"");
+  const map = {
+    "아츠 피해 증가":"아츠 피해",
+    "아츠 피해":"아츠 피해",
+    "오리지늄 아츠":"아츠 강도",
+    "아츠 강도 증가":"아츠 강도",
+    "주요":"주요 능력치","주요능력치":"주요 능력치","힘":"힘","민첩":"민첩","지능":"지능","의지":"의지",
+    "공격":"공격력","생명":"생명력","치명":"치명타 확률","물리":"물리 피해","열기":"열기 피해",
+    "냉기":"냉기 피해","전기":"전기 피해","자연":"자연 피해",
+    "치유":"치유 효율","궁극":"궁극기 획득 효율","어":"어둠","고통":"고통","흐름":"흐름",
+    "방출":"방출","억제":"억제","의료":"의료","기예":"기예","잔혹":"잔혹",
+    "분쇄":"분쇄","추격":"추격","효율":"효율"
+  };
+  for(const k in map){ if(line.includes(k)) return map[k]; }
+  return null;
+}
+
+function preprocessCanvas(){
+  const w = crop.width, h = crop.height;
+  const imgData = ctx.getImageData(0,0,w,h);
+  for(let i=0;i<imgData.data.length;i+=4){
+    let r=imgData.data[i], g=imgData.data[i+1], b=imgData.data[i+2];
+    r=((r-128)*1.5+128)|0; g=((g-128)*1.5+128)|0; b=((b-128)*1.5+128)|0;
+    imgData.data[i]=Math.min(255,Math.max(0,r));
+    imgData.data[i+1]=Math.min(255,Math.max(0,g));
+    imgData.data[i+2]=Math.min(255,Math.max(0,b));
+  }
+  ctx.putImageData(imgData,0,0);
+}
+
+function splitWeapons(detected,list){
+  const threeOpts = [];
+  const twoOpts = [];
+  list.forEach(w=>{
+    const count = w.opts.filter(o=>detected.includes(o)).length;
+    if(count>=3) threeOpts.push(`${w.name} (${count}옵션)\n${w.opts.filter(o=>detected.includes(o)).join(", ")}`);
+    else if(count===2) twoOpts.push(`${w.name} (${count}옵션)\n${w.opts.filter(o=>detected.includes(o)).join(", ")}`);
+  });
+  return {threeOpts,twoOpts};
+}
+
+async function loop(){
+  if(!video) return;
+  const vw=video.videoWidth, vh=video.videoHeight;
+  const x=vw*OPTION_BOX_RATIO.x, y=vh*OPTION_BOX_RATIO.y, w=vw*OPTION_BOX_RATIO.w, h=vh*OPTION_BOX_RATIO.h;
+  crop.width=w; crop.height=h;
+  ctx.drawImage(video,x,y,w,h,0,0,w,h);
+  preprocessCanvas();
+
+  const {data} = await Tesseract.recognize(crop,"kor",{tessedit_char_whitelist:"가-힣",tessedit_pageseg_mode:Tesseract.PSM.SINGLE_BLOCK});
+  const set = new Set();
+  data.text.split("\n").forEach(l=>{ const o=normalize(l); if(o) set.add(o); });
+  const detected=[...set];
+  document.getElementById("options").textContent = detected.join(", ");
+
+  const show2 = document.getElementById("show2").checked;
+
+  // 6성
+  const {threeOpts: t6, twoOpts: d6} = splitWeapons(detected,WEAPONS_6);
+  let out6 = t6;
+  if(show2 && d6.length>0) out6.push("---------",...d6);
+  document.getElementById("result6").textContent = out6.join("\n\n") || "일치 없음";
+
+  // 5성
+  if(document.getElementById("use5").checked){
+    document.getElementById("title5").style.display="block";
+    document.getElementById("result5").style.display="block";
+    const {threeOpts: t5, twoOpts: d5} = splitWeapons(detected,WEAPONS_5);
+    let out5 = t5;
+    if(show2 && d5.length>0) out5.push("---------",...d5);
+    document.getElementById("result5").textContent = out5.join("\n\n") || "일치 없음";
+  } else {
+    document.getElementById("title5").style.display="none";
+    document.getElementById("result5").style.display="none";
+  }
+
+  setTimeout(loop,1200);
+}
+
+document.getElementById("share").onclick=async()=>{
+  stream = await navigator.mediaDevices.getDisplayMedia({ video:{ frameRate:5 } });
+  video = document.createElement("video");
+  video.srcObject=stream;
+  video.play();
+  video.onloadedmetadata=loop;
+};
+</script>
+
+</body>
+</html>

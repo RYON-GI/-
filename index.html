@@ -1,209 +1,272 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<title>엔드필드 기질 옵션</title>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-<style>
-  body { background:#111; color:#eee; font-family: monospace; margin:20px; }
-  button { margin-bottom:10px; }
-  .wrap { display:flex; gap:30px; align-items:flex-start; }
-  canvas { border:1px solid #555; }
-  .panel { min-width:340px; }
-  h3 { margin:8px 0; }
-  pre { background:#000; padding:10px; min-height:80px; white-space:pre-wrap; overflow-x:auto; font-size:20px; }
-  label { margin-right:15px; }
-</style>
+    <meta charset="UTF-8">
+    <title>엔드필드 통합 스캐너 - 최종 안정화 버전</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        :root { --primary: #4db8ff; --bg: #121212; --panel: #1e1e1e; --gold: #ffcc00; --purple: #a335ee; }
+        body { background: var(--bg); color: #e0e0e0; font-family: 'Malgun Gothic', sans-serif; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        .tab-container { display: flex; gap: 5px; width: 100%; max-width: 1000px; margin-bottom: -1px; }
+        .tab { padding: 10px 25px; background: #2a2a2a; border: 1px solid #333; border-bottom: none; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: bold; color: #888; transition: 0.2s; }
+        .tab.active { background: var(--panel); color: var(--primary); border-top: 3px solid var(--primary); z-index: 2; }
+        .main-wrapper { display: grid; grid-template-columns: 450px 1fr; gap: 20px; max-width: 1000px; width: 100%; background: var(--panel); padding: 20px; border-radius: 0 12px 12px 12px; border: 1px solid #333; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
+        .control-bar { grid-column: span 2; display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; }
+        .scan-side { display: flex; flex-direction: column; gap: 15px; }
+        canvas { border: 2px solid #444; border-radius: 10px; width: 100%; background: #000; display: block; }
+        .opt-box { background: #252525; padding: 12px 18px; border-radius: 8px; border-left: 5px solid var(--primary); display: flex; align-items: center; height: 35px; margin-top: 5px; }
+        .opt-name { font-size: 1.2em; font-weight: bold; color: #ffff00; }
+        .section-box { background: rgba(255,255,255,0.03); border: 1px solid #333; border-radius: 10px; padding: 15px; min-height: 250px; }
+        .weapon-item { background: #2a2a2a; padding: 10px 15px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #383838; }
+        .match-count { font-size: 0.85em; font-weight: bold; padding: 2px 10px; border-radius: 10px; background: var(--gold); color: #000; }
+        .match-count.full { background: #ff4d4d; color: #fff; }
+        button { padding: 10px 30px; cursor: pointer; font-weight: bold; background: #007bff; color: white; border: none; border-radius: 8px; }
+        button:disabled { background: #444; cursor: not-allowed; }
+        .filter-group { display: flex; gap: 15px; font-size: 0.85em; color: #aaa; }
+    </style>
 </head>
 <body>
 
-<h2>명일방주: 엔드필드 기질 옵션</h2>
+<div class="tab-container">
+    <div class="tab active" onclick="switchTab('warehouse')">귀중품 창고</div>
+    <div class="tab" onclick="switchTab('etching')">기질 식각</div>
+</div>
 
-<button id="share">화면 공유 시작</button>
-<label>
-  <input type="checkbox" id="use5"> 5성 포함
-</label>
-<label>
-  <input type="checkbox" id="show2"> 2옵션 보기
-</label>
+<div class="main-wrapper">
+    <div class="control-bar">
+        <button id="start-btn" disabled>엔진 로딩 중...</button>
+        <div class="filter-group">
+            <label><input type="checkbox" id="check-5star"> 5성 표시</label>
+            <label><input type="checkbox" id="include-2match"> 2개 일치 포함</label>
+        </div>
+    </div>
 
-<div class="wrap">
-  <div>
-    <h3>인식 영역</h3>
-    <canvas id="crop"></canvas>
-  </div>
+    <div class="scan-side">
+        <div class="result-title" style="color:var(--primary); font-weight: bold;">분석 화면 (Real-time)</div>
+        <canvas id="view-canvas"></canvas>
+        <div class="opt-container">
+            <div class="opt-box"><div id="opt-1" class="opt-name">-</div></div>
+            <div class="opt-box"><div id="opt-2" class="opt-name">-</div></div>
+            <div class="opt-box"><div id="opt-3" class="opt-name">-</div></div>
+        </div>
+    </div>
 
-  <div class="panel">
-    <h3>인식된 옵션</h3>
-    <pre id="options"></pre>
-
-    <h3>6성 무기</h3>
-    <pre id="result6"></pre>
-
-    <h3 id="title5" style="display:none">5성 무기</h3>
-    <pre id="result5" style="display:none"></pre>
-  </div>
+    <div class="result-side">
+        <div class="section-box">
+            <div style="color:var(--gold); font-weight:bold; border-bottom:1px solid #444; margin-bottom:10px; padding-bottom:5px;">6성 무기 매칭</div>
+            <div id="list-6star"></div>
+        </div>
+        <div id="section-5star" class="section-box" style="display: none; margin-top:10px;">
+            <div style="color:var(--purple); font-weight:bold; border-bottom:1px solid #444; margin-bottom:10px; padding-bottom:5px;">5성 무기 매칭</div>
+            <div id="list-5star"></div>
+        </div>
+    </div>
 </div>
 
 <script>
-const OPTION_BOX_RATIO = { x:0.7700, y:0.3280, w:0.1020, h:0.1660 };
-
-// ================== 원본 DB 그대로 ==================
+// 무기 DB (공백 제거 버전)
 const WEAPONS_6 = [
-  {name:"과거의 일품", opts:["의지","생명력","효율"]},
-  {name:"기사도 정신", opts:["의지","생명력","의료"]},
-  {name:"끝없는 방랑", opts:["의지","공격력","흐름"]},
-  {name:"망각", opts:["지능","아츠 피해","어둠"]},
-  {name:"모범", opts:["주요 능력치","공격력","억제"]},
-  {name:"바다와 별의 꿈", opts:["지능","치유 효율","고통"]},
-  {name:"백야의 별", opts:["주요 능력치","아츠 강도","고통"]},
-  {name:"부요", opts:["주요 능력치","치명타 확률","어둠"]},
-  {name:"분쇄의 군주", opts:["힘","치명타 확률","분쇄"]},
-  {name:"사명의 길", opts:["의지","궁극기 획득 효율","추격"]},
-  {name:"산의 지배자", opts:["민첩","물리 피해","효율"]},
-  {name:"쐐기", opts:["주요 능력치","치명타 확률","고통"]},
-  {name:"암흑의 횃불", opts:["지능","열기 피해","고통"]},
-  {name:"예술의 폭군", opts:["지능","치명타 확률","골절"]},
-  {name:"용사", opts:["민첩","물리 피해","기예"]},
-  {name:"용조의 불꽃", opts:["지능","공격력","어둠"]},
-  {name:"위대한 이름", opts:["주요 능력치","물리 피해","잔혹"]},
-  {name:"작품: 침식 흔적", opts:["의지","자연 피해","억제"]},
-  {name:"장대한 염원", opts:["민첩","공격력","고통"]},
-  {name:"천둥의 흔적", opts:["힘","생명력","의료"]},
-  {name:"클래니벌", opts:["주요 능력치","아츠 강도","고통"]},
-  {name:"테르밋 커터", opts:["의지","공격력","흐름"]},
-  {name:"폭발 유닛", opts:["주요 능력치","아츠 강도","방출"]},
-  {name:"항로의 개척자", opts:["지능","냉기 피해","고통"]},
-  {name:"헤라펜거", opts:["힘","공격력","방출"]},
-  {name:"J.E.T", opts:["주요 능력치","공격력","억제"]}
+  { name: "과거의 일품", opts: ["의지", "생명력", "효율"] },
+  { name: "기사도 정신", opts: ["의지", "생명력", "의료"] },
+  { name: "끝없는 방랑", opts: ["의지", "공격력", "흐름"] },
+  { name: "망각", opts: ["지능", "아츠피해", "어둠"] },
+  { name: "모범", opts: ["주요능력치", "공격력", "억제"] },
+  { name: "바다와 별의 꿈", opts: ["지능", "치유효율", "고통"] },
+  { name: "백야의 별", opts: ["주요능력치", "아츠강도", "고통"] },
+  { name: "부요", opts: ["주요능력치", "치명타확률", "어둠"] },
+  { name: "분쇄의 군주", opts: ["힘", "치명타확률", "분쇄"] },
+  { name: "사명의 길", opts: ["의지", "궁극기획득효율", "추격"] },
+  { name: "산의 지배자", opts: ["민첩", "물리피해", "효율"] },
+  { name: "쐐기", opts: ["주요능력치", "치명타확률", "고통"] },
+  { name: "암흑의 횃불", opts: ["지능", "열기피해", "고통"] },
+  { name: "예술의 폭군", opts: ["지능", "치명타확률", "골절"] },
+  { name: "용사", opts: ["민첩", "물리피해", "기예"] },
+  { name: "용조의 불꽃", opts: ["지능", "공격력", "어둠"] },
+  { name: "위대한 이름", opts: ["주요능력치", "물리피해", "잔혹"] },
+  { name: "작품: 침식 흔적", opts: ["의지", "자연피해", "억제"] },
+  { name: "장대한 염원", opts: ["민첩", "공격력", "고통"] },
+  { name: "천둥의 흔적", opts: ["힘", "생명력", "의료"] },
+  { name: "클래니벌", opts: ["주요능력치", "아츠강도", "고통"] },
+  { name: "테르밋 커터", opts: ["의지", "공격력", "흐름"] },
+  { name: "폭발 유닛", opts: ["주요능력치", "아츠강도", "방출"] },
+  { name: "항로의 개척자", opts: ["지능", "냉기피해", "고통"] },
+  { name: "헤라펜거", opts: ["힘", "공격력", "방출"] },
+  { name: "J.E.T", opts: ["주요능력치", "공격력", "억제"] }
 ];
 
 const WEAPONS_5 = [
-  {name:"강철의 여운", opts:["민첩","물리 피해","기예"]},
-  {name:"검은 추적자", opts:["힘","궁극기 획득 효율","방출"]},
-  {name:"고대의 강줄기", opts:["힘","아츠 강도","잔혹"]},
-  {name:"린수를 찾아서 3.0", opts:["힘","냉기 피해","억제"]},
-  {name:"망자의 노래", opts:["지능","공격력","어둠"]},
-  {name:"무가내하", opts:["의지","궁극기 획득 효율","사기"]},
-  {name:"불사의 성주", opts:["지능","궁극기 획득 효율","사기"]},
-  {name:"선교의 자유", opts:["의지","치유 효율","의료"]},
-  {name:"숭배의 시선", opts:["민첩","물리 피해","어둠"]},
-  {name:"십이문", opts:["민첩","공격력","고통"]},
-  {name:"이상적인 작별", opts:["힘","열기 피해","추격"]},
-  {name:"작품: 중생", opts:["민첩","아츠 강도","고통"]},
-  {name:"중심력", opts:["의지","전기 피해","억제"]},
-  {name:"최후의 메아리", opts:["힘","생명력","의료"]},
-  {name:"키메라의 정의", opts:["힘","궁극기 획득 효율","잔혹"]},
-  {name:"황무지의 방랑자", opts:["지능","전기 피해","고통"]},
-  {name:"O.B.J 벨로시투스", opts:["민첩","궁극기 획득 효율","방출"]},
-  {name:"O.B.J 스파이크", opts:["의지","물리 피해","고통"]},
-  {name:"O.B.J 아츠 아이덴티티", opts:["지능","아츠 강도","추격"]},
-  {name:"O.B.J 엣지 오브 라이트", opts:["민첩","공격력","흐름"]},
-  {name:"O.B.J 헤비 버든", opts:["힘","생명력","효율"]}
+  { name: "강철의 여운", opts: ["민첩", "물리피해", "기예"] },
+  { name: "검은 추적자", opts: ["힘", "궁극기획득효율", "방출"] },
+  { name: "고대의 강줄기", opts: ["힘", "아츠강도", "잔혹"] },
+  { name: "린수를 찾아서 3.0", opts: ["힘", "냉기피해", "억제"] },
+  { name: "망자의 노래", opts: ["지능", "공격력", "어둠"] },
+  { name: "무가내하", opts: ["의지", "궁극기획득효율", "사기"] },
+  { name: "불사의 성주", opts: ["지능", "궁극기획득효율", "사기"] },
+  { name: "선교의 자유", opts: ["의지", "치유효율", "의료"] },
+  { name: "숭배의 시선", opts: ["민첩", "물리피해", "어둠"] },
+  { name: "십이문", opts: ["민첩", "공격력", "고통"] },
+  { name: "이상적인 작별", opts: ["힘", "열기피해", "추격"] },
+  { name: "작품: 중생", opts: ["민첩", "아츠강도", "고통"] },
+  { name: "중심력", opts: ["의지", "전기피해", "억제"] },
+  { name: "최후의 메아리", opts: ["힘", "생명력", "의료"] },
+  { name: "키메라의 정의", opts: ["힘", "궁극기획득효율", "잔혹"] },
+  { name: "황무지의 방랑자", opts: ["지능", "전기피해", "고통"] },
+  { name: "O.B.J 벨로시투스", opts: ["민첩", "궁극기획득효율", "방출"] },
+  { name: "O.B.J 스파이크", opts: ["의지", "물리피해", "고통"] },
+  { name: "O.B.J 아츠 아이덴티티", opts: ["지능", "아츠강도", "추격"] },
+  { name: "O.B.J 엣지 오브 라이트", opts: ["민첩", "공격력", "흐름"] },
+  { name: "O.B.J 헤비 버든", opts: ["힘", "생명력", "효율"] }
 ];
 
-// ================== OCR ==================
-let video, stream;
-const crop = document.getElementById("crop");
-const ctx = crop.getContext("2d");
+let currentTab = 'warehouse';
+let isRunning = false;
+let worker = null;
+let lastRecognizedOptions = ["-", "-", "-"]; // 깜빡임 방지용 메모리
 
-function normalize(line){
-  line = line.replace(/[ㅇ"'#\/\d]/g,"");
-  const map = {
-    "아츠 피해 증가":"아츠 피해",
-    "아츠 피해":"아츠 피해",
-    "오리지늄 아츠":"아츠 강도",
-    "아츠 강도 증가":"아츠 강도",
-    "주요":"주요 능력치","주요능력치":"주요 능력치","힘":"힘","민첩":"민첩","지능":"지능","의지":"의지",
-    "공격":"공격력","생명":"생명력","치명":"치명타 확률","물리":"물리 피해","열기":"열기 피해",
-    "냉기":"냉기 피해","전기":"전기 피해","자연":"자연 피해",
-    "치유":"치유 효율","궁극":"궁극기 획득 효율","어":"어둠","ㅇ":"어둠","어돔":"어둠","고통":"고통","흐름":"흐름",
-    "방출":"방출","억제":"억제","의료":"의료","기예":"기예","잔혹":"잔혹",
-    "분쇄":"분쇄","추격":"추격","효율":"효율","강공":"강공","골절":"골절","사기":"사기"
-  };
-  for(const k in map){ if(line.includes(k)) return map[k]; }
-  return null;
-}
+const video = document.createElement('video');
+video.setAttribute('autoplay', ''); video.setAttribute('muted', ''); video.setAttribute('playsinline', '');
 
-function preprocessCanvas(){
-  const w = crop.width, h = crop.height;
-  const imgData = ctx.getImageData(0,0,w,h);
-  for(let i=0;i<imgData.data.length;i+=4){
-    let r=imgData.data[i], g=imgData.data[i+1], b=imgData.data[i+2];
-    r=((r-128)*1.5+128)|0; g=((g-128)*1.5+128)|0; b=((b-128)*1.5+128)|0;
-    imgData.data[i]=Math.min(255,Math.max(0,r));
-    imgData.data[i+1]=Math.min(255,Math.max(0,g));
-    imgData.data[i+2]=Math.min(255,Math.max(0,b));
-  }
-  ctx.putImageData(imgData,0,0);
-}
+const viewCanvas = document.getElementById('view-canvas'), viewCtx = viewCanvas.getContext('2d');
+const hiddenCanvas = document.createElement('canvas'), hiddenCtx = hiddenCanvas.getContext('2d');
 
-function splitWeapons(detected,list){
-  const threeOpts = [];
-  const twoOpts = [];
-  list.forEach(w=>{
-    const count = w.opts.filter(o=>detected.includes(o)).length;
-    if(count>=3) threeOpts.push(`${w.name} (${count}옵션)\n${w.opts.filter(o=>detected.includes(o)).join(", ")}`);
-    else if(count===2) twoOpts.push(`${w.name} (${count}옵션)\n${w.opts.filter(o=>detected.includes(o)).join(", ")}`);
-  });
-  return {threeOpts,twoOpts};
-}
-
-async function loop(){
-  if(!video) return;
-  const vw=video.videoWidth, vh=video.videoHeight;
-  const x=vw*OPTION_BOX_RATIO.x, y=vh*OPTION_BOX_RATIO.y, w=vw*OPTION_BOX_RATIO.w, h=vh*OPTION_BOX_RATIO.h;
-  crop.width=w; crop.height=h;
-  ctx.drawImage(video,x,y,w,h,0,0,w,h);
-  preprocessCanvas();
-
-  const {data} = await Tesseract.recognize(crop,"kor",{tessedit_char_whitelist:"가-힣",tessedit_pageseg_mode:Tesseract.PSM.SINGLE_BLOCK});
-  const set = new Set();
-  data.text.split("\n").forEach(l=>{ const o=normalize(l); if(o) set.add(o); });
-  const detected=[...set];
-  document.getElementById("options").textContent = detected.join(", ");
-
-  const show2 = document.getElementById("show2").checked;
-
-  // 6성
-  const {threeOpts: t6, twoOpts: d6} = splitWeapons(detected,WEAPONS_6);
-  let out6 = t6;
-  if(show2 && d6.length>0) out6.push("---------",...d6);
-  document.getElementById("result6").textContent = out6.join("\n\n") || "일치 없음";
-
-  // 5성
-  if(document.getElementById("use5").checked){
-    document.getElementById("title5").style.display="block";
-    document.getElementById("result5").style.display="block";
-    const {threeOpts: t5, twoOpts: d5} = splitWeapons(detected,WEAPONS_5);
-    let out5 = t5;
-    if(show2 && d5.length>0) out5.push("---------",...d5);
-    document.getElementById("result5").textContent = out5.join("\n\n") || "일치 없음";
-  } else {
-    document.getElementById("title5").style.display="none";
-    document.getElementById("result5").style.display="none";
-  }
-
-  setTimeout(loop,1200);
-}
-
-document.getElementById("share").onclick=async()=>{
-  stream = await navigator.mediaDevices.getDisplayMedia({ video:{ frameRate:5 } });
-  video = document.createElement("video");
-  video.srcObject=stream;
-  video.play();
-  video.onloadedmetadata=loop;
+const CONFIGS = {
+    warehouse: {
+        roi: { x: 0.765, y: 0.332, w: 0.132, h: 0.154 },
+        boxes: [ { x: 0.15, y: -0.01, w: 0.81, h: 0.18 }, { x: 0.15, y: 0.32, w: 0.81, h: 0.18 }, { x: 0.15, y: 0.66, w: 0.81, h: 0.18 } ]
+    },
+    etching: {
+        roi: { x: 0.096, y: 0.5, w: 0.14, h: 0.1 },
+        boxes: [ { x: 0.02, y: 0.0, w: 0.9, h: 0.25 }, { x: 0.02, y: 0.37, w: 0.9, h: 0.25 }, { x: 0.02, y: 0.72, w: 0.9, h: 0.25 } ]
+    }
 };
+
+function normalize(text) {
+    // 1. 모든 공백 제거 및 한글 제외 문자 제거
+    let clean = text.replace(/\s+/g, "").replace(/[^\uAC00-\uD7A3]/g, ""); 
+    if (!clean) return null;
+    
+    // 2. 불필요한 접미사 제거
+    clean = clean.replace(/(증가|즘가|승가|즈기|증|가|력)$/, "");
+
+    // 3. [어둠/어눔 보정]
+    if (/어[눔둠롬놈돔룸룸니ㄴㅁ]|[어엄움]/.test(clean)) {
+        if (clean.includes("어") || clean === "엄" || clean === "움" || clean === "어눔") return "어둠";
+    }
+
+    // 4. [힘/으루 보정] - '으루', '루', '그루' 등을 모두 '힘'으로 인식하도록 보강
+    if (/그룹|그룰|그옵|그루|으루|^루$|흐임|^힘$/.test(clean)) return "힘";
+
+    // 5. [지능 보정]
+    if (/지.능|시.능|지능|시능/.test(clean)) return "지능";
+    
+    // 6. [복합 옵션명 보정]
+    if (/궁.기|획.효|궁극/.test(clean)) return "궁극기획득효율"; 
+    if (/치.효|시.효|치유/.test(clean)) return "치유효율";
+    if (/능.치|주.요/.test(clean)) return "주요능력치";
+    if (/치.타|명.타|확.률/.test(clean)) return "치명타확률";
+    
+    if (/아.츠|아.측/.test(clean)) return clean.includes("피") ? "아츠피해" : "아츠강도";
+    if (/물.리|물.피/.test(clean)) return "물리피해";
+    if (/냉.기/.test(clean)) return "냉기피해";
+    if (/열.기/.test(clean)) return "열기피해";
+    if (/전.기/.test(clean)) return "전기피해";
+    if (/자.연/.test(clean)) return "자연피해";
+
+    if (clean.includes("민첩")) return "민첩";
+    if (clean.includes("의지")) return "의지";
+    if (clean.includes("공격")) return "공격력";
+    if (clean.includes("생명")) return "생명력";
+    if (clean.includes("흐름")) return "흐름";
+    
+    const etc = ["고통","억제","잔혹","방출","추격","기예","골절","분쇄","사기","의료","효율"];
+    for(let k of etc) { if(clean.includes(k)) return k; }
+    
+    return clean;
+}
+
+async function initOCR() {
+    try {
+        worker = await Tesseract.createWorker('kor');
+        await worker.setParameters({ tessedit_pageseg_mode: '7' });
+        document.getElementById('start-btn').disabled = false;
+        document.getElementById('start-btn').textContent = "화면 공유 시작";
+    } catch (e) { alert("OCR 초기화 실패"); }
+}
+
+function updateMatches(currentOptions) {
+    const list6 = document.getElementById('list-6star'), list5 = document.getElementById('list-5star');
+    const show5 = document.getElementById('check-5star').checked;
+    const minMatch = document.getElementById('include-2match').checked ? 2 : 3;
+    
+    list6.innerHTML = ""; list5.innerHTML = "";
+    document.getElementById('section-5star').style.display = show5 ? 'block' : 'none';
+
+    const matchFn = (db) => db.map(w => ({ weapon: w, count: w.opts.filter(o => currentOptions.includes(o)).length }))
+                            .filter(m => m.count >= minMatch).sort((a,b) => b.count - a.count);
+
+    matchFn(WEAPONS_6).forEach(m => {
+        const div = document.createElement('div'); div.className = 'weapon-item';
+        div.innerHTML = `<span>${m.weapon.name}</span><span class="match-count ${m.count===3?'full':''}">${m.count}개 일치</span>`;
+        list6.appendChild(div);
+    });
+    if (show5) {
+        matchFn(WEAPONS_5).forEach(m => {
+            const div = document.createElement('div'); div.className = 'weapon-item';
+            div.innerHTML = `<span>${m.weapon.name}</span><span class="match-count ${m.count===3?'full':''}">${m.count}개 일치</span>`;
+            list5.appendChild(div);
+        });
+    }
+}
+
+async function recognizeLoop() {
+    if (!isRunning) return;
+    const config = CONFIGS[currentTab];
+    if (video.readyState >= 2) {
+        const vw = video.videoWidth, vh = video.videoHeight;
+        const sx = vw * config.roi.x, sy = vh * config.roi.y, sw = vw * config.roi.w, sh = vh * config.roi.h;
+        
+        viewCanvas.width = sw; viewCanvas.height = sh;
+        viewCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
+        
+        hiddenCanvas.width = sw * 2; hiddenCanvas.height = sh * 2;
+        hiddenCtx.filter = 'contrast(170%) grayscale(100%)';
+        hiddenCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw * 2, sh * 2);
+
+        const currentOptions = [];
+        for (let i = 0; i < 3; i++) {
+            const box = config.boxes[i];
+            const res = await worker.recognize(hiddenCanvas, { 
+                rectangle: { left: box.x * hiddenCanvas.width, top: box.y * hiddenCanvas.height, width: box.w * hiddenCanvas.width, height: box.h * hiddenCanvas.height } 
+            });
+            const norm = normalize(res.data.text.trim());
+            
+            if (norm) {
+                lastRecognizedOptions[i] = norm;
+                document.getElementById(`opt-${i+1}`).textContent = norm;
+            }
+            currentOptions.push(lastRecognizedOptions[i]);
+        }
+        updateMatches(currentOptions);
+    }
+    requestAnimationFrame(recognizeLoop);
+}
+
+document.getElementById('start-btn').onclick = async () => {
+    try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "always" } });
+        video.srcObject = stream;
+        video.onloadedmetadata = () => { video.play(); isRunning = true; recognizeLoop(); };
+        document.getElementById('start-btn').disabled = true;
+    } catch (e) { alert("연결 오류: " + e.message); }
+};
+
+function switchTab(tabId) {
+    currentTab = tabId;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+}
+
+initOCR();
 </script>
-
 </body>
-  <pre style="background:#222; color:#0f0; padding:10px; margin-top:20px; font-size:16px;">
-사용법:
-1. 화면 공유 시작 클릭 -> 공유항목 창 선택 -> 엔드필드 공유
-2. 엔드필드에서 귀중품 창고 (키보드 N, 패드 LT) -> 무기 기질
-</pre>
 </html>
-
-
-
-

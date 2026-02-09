@@ -413,62 +413,85 @@ function initFarmingUI() {
 }
 
 function updateFarmingResults() {
-    const selectedListContainer = document.getElementById('total-target-opts'); // ID는 유지하되 내용은 무기정보로 활용
+    const selectedListContainer = document.getElementById('total-target-opts'); 
     const resultContainer = document.getElementById('farming-results-container');
     
+    // 제목 변경 (HTML 구조상 부모 요소의 텍스트를 바꿉니다)
+    const titleLabel = selectedListContainer.previousElementSibling;
+    if (titleLabel) titleLabel.innerHTML = '📊 선택 무기';
+
     if (selectedWeapons.size === 0) {
         selectedListContainer.innerHTML = `<span style="color:#666; font-size:0.85em;">무기를 선택하면 상세 정보가 표시됩니다.</span>`;
         resultContainer.innerHTML = `<div style="text-align:center; padding: 40px; color:#666;">선택된 무기가 없습니다.</div>`;
         return;
     }
 
-    // 1. 선택한 무기 목록 및 옵션 표시
+    // 1. [상단] 선택한 무기 목록 표시
     selectedListContainer.innerHTML = Array.from(selectedWeapons).map(w => `
-        <div style="background:#333; padding:8px 12px; border-radius:6px; margin-bottom:5px; border-left:3px solid var(--gold);">
+        <div style="background: rgba(255,255,255,0.05); padding:10px 12px; border-radius:6px; margin-bottom:6px; border-left:3px solid var(--gold);">
             <div style="font-weight:bold; font-size:0.9em; color:var(--gold);">${w.name}</div>
-            <div style="font-size:0.8em; color:#bbb;">필요 옵션: ${w.opts.join(', ')}</div>
+            <div style="font-size:0.8em; color:#bbb; margin-top:2px;">필요 옵션: ${w.opts.join(', ')}</div>
         </div>
     `).join('');
 
-    // 2. 지역별 추천 파밍 옵션 계산
+    // 2. 지역별 데이터 계산
     const results = PLACES.map(p => {
-        // 이 지역에서 파밍 가능한(옵션이 포함된) 선택 무기들
         const matchedWeapons = Array.from(selectedWeapons).filter(w => 
             w.opts.every(opt => p.opts.includes(opt))
         );
 
-        // 해당 무기들을 위해 이 지역에서 노려야 할 핵심 옵션들(중복 제거)
-        const targetOpts = new Set();
-        matchedWeapons.forEach(w => w.opts.forEach(o => targetOpts.add(o)));
+        // 옵션별 출현 빈도 계산 (겹치는 옵션 확인용)
+        const optCountMap = {};
+        matchedWeapons.forEach(w => {
+            w.opts.forEach(o => {
+                optCountMap[o] = (optCountMap[o] || 0) + 1;
+            });
+        });
 
         return { 
             name: p.name, 
             matchedCount: matchedWeapons.length,
-            recommendOpts: Array.from(targetOpts)
+            weaponNames: matchedWeapons.map(w => w.name),
+            optDetails: Object.entries(optCountMap).map(([name, count]) => ({
+                name,
+                isDuplicate: count > 1 // 2개 이상의 무기에서 요구하면 겹치는 옵션
+            }))
         };
     }).sort((a,b) => b.matchedCount - a.matchedCount);
 
     // 3. 결과 렌더링
     resultContainer.innerHTML = results.map(r => `
-        <div class="result-region-card ${r.matchedCount > 0 ? 'best' : ''}" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+        <div class="result-region-card ${r.matchedCount > 0 ? 'best' : ''}" style="flex-direction: column; align-items: flex-start; gap: 10px; padding: 15px;">
             <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
                 <strong style="font-size:1.1em; color:${r.matchedCount > 0 ? 'var(--primary)' : '#888'}">${r.name}</strong>
-                <span style="background:var(--gold); color:#000; padding:2px 8px; border-radius:10px; font-size:0.8em; font-weight:bold;">
-                    ${r.matchedCount}개 무기 파밍 가능
+                <span style="background:var(--gold); color:#000; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:bold;">
+                    ${r.matchedCount}개 종결 가능
                 </span>
             </div>
-            <div style="width:100%; background:rgba(0,0,0,0.3); padding:10px; border-radius:6px;">
-                <div style="font-size:0.8em; color:var(--gold); margin-bottom:5px; font-weight:bold;">🎯 추천 파밍 옵션</div>
-                <div style="display:flex; flex-wrap:wrap; gap:5px;">
-                    ${r.recommendOpts.length > 0 
-                        ? r.recommendOpts.map(opt => `<span style="font-size:0.85em; color:#eee; background:#444; padding:2px 8px; border-radius:4px;">${opt}</span>`).join('')
-                        : '<span style="color:#666; font-size:0.85em;">추천 옵션 없음</span>'}
+
+            ${r.matchedCount > 0 ? `
+                <div style="width:100%; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border: 1px solid #333;">
+                    <div style="font-size:0.75em; color:#aaa; margin-bottom:8px; font-weight:bold;">🎯 추천 파밍 옵션 (초록색: 겹침)</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:5px;">
+                        ${r.optDetails.map(opt => `
+                            <span style="font-size:0.8em; padding:2px 8px; border-radius:4px; border:1px solid ${opt.isDuplicate ? '#28a745' : '#555'}; 
+                                         background:${opt.isDuplicate ? 'rgba(40, 167, 69, 0.2)' : '#222'}; 
+                                         color:${opt.isDuplicate ? '#2ecc71' : '#eee'};">
+                                ${opt.name}
+                            </span>
+                        `).join('')}
+                    </div>
                 </div>
-            </div>
+
+                <div style="width:100%; font-size:0.85em; color:#ccc; line-height:1.4;">
+                    <span style="color:var(--primary); font-weight:bold;">📦 가능 무기:</span> ${r.weaponNames.join(', ')}
+                </div>
+            ` : `
+                <div style="font-size:0.85em; color:#555; text-align:center; width:100%;">이 지역은 파밍 가능한 무기가 없습니다.</div>
+            `}
         </div>
     `).join('');
 }
-
 function resetWeaponSelection() {
     document.querySelectorAll('.weapon-card').forEach(c => c.classList.remove('selected'));
     selectedWeapons.clear();
@@ -566,4 +589,5 @@ init();
 </script>
 </body>
 </html>
+
 

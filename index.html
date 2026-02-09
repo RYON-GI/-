@@ -336,20 +336,23 @@ function updateFarmingResults() {
             .filter(o => baseStats.includes(o) && optionCounts[o])
             .sort((a, b) => optionCounts[b] - optionCounts[a]).slice(0, 3);
 
-        // 2. 추가/스킬 옵션 결정 로직
+       // 2. 추가/스킬 옵션 결정 로직 (무조건 겹치는 갯수 우선)
         const extraAndSkills = place.opts
             .filter(o => !baseStats.includes(o) && optionCounts[o])
             .sort((a, b) => {
                 const countA = optionCounts[a];
                 const countB = optionCounts[b];
+                
+                // 1순위: 무조건 겹치는 갯수(Count)가 많은 쪽
+                if (countB !== countA) {
+                    return countB - countA;
+                }
+                
+                // 2순위: 겹치는 갯수가 같다면 스킬 속성을 우선
+                const skillStats = ["강공", "억제", "추격", "분쇄", "기예", "방출", "흐름", "효율", "사기", "고통", "의료", "골절", "잔혹", "어둠"];
                 const isSkillA = skillStats.includes(a);
                 const isSkillB = skillStats.includes(b);
-
-                // 스킬 속성에 가중치(예: +0.5점)를 주어 기본적으로 스킬을 우선하되, 
-                // 추가 속성의 빈도가 더 높으면(예: x2 vs x1) 추가 속성이 위로 올라오게 함
-                const scoreA = countA + (isSkillA ? 0.6 : 0);
-                const scoreB = countB + (isSkillB ? 0.6 : 0);
-                return scoreB - scoreA;
+                return isSkillB - isSkillA;
             });
 
         const recommendedExtra = extraAndSkills.slice(0, 1);
@@ -478,6 +481,7 @@ init();
 </script>
 </body>
 </html>
+
 
 
 

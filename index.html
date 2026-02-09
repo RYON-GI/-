@@ -303,10 +303,14 @@ function updateMatches(currentOptions) {
     }
 }
 
-// --- 파밍 가이드 로직 ---
+// --- 파밍 가이드 로직 (스킬 속성 우선 + 빈도수 가중치 적용) ---
 function updateFarmingResults() {
     const resDiv = document.getElementById('farming-results');
     if (selectedWeapons.size === 0) { resDiv.innerHTML = "무기 사진을 클릭하여 선택하세요."; return; }
+
+    // 속성 분류 정의
+    const baseStats = ["민첩", "힘", "의지", "지능", "주요능력치"];
+    const skillStats = ["강공", "억제", "추격", "분쇄", "기예", "방출", "흐름", "효율", "사기", "고통", "의료", "골절", "잔혹", "어둠"];
 
     const optionCounts = {};
     selectedWeapons.forEach(w => {
@@ -327,13 +331,28 @@ function updateFarmingResults() {
             if (weapon.opts.every(opt => placeOpts.has(opt))) fullyMatchedWeapons.push(weapon.name);
         });
 
-        const baseStats = ["민첩", "힘", "의지", "지능", "주요능력치"];
+        // 1. 기초 옵션 3개 (필요 빈도 높은 순)
         const recommendedBases = place.opts
             .filter(o => baseStats.includes(o) && optionCounts[o])
             .sort((a, b) => optionCounts[b] - optionCounts[a]).slice(0, 3);
-        const recommendedExtra = place.opts
+
+        // 2. 추가/스킬 옵션 결정 로직
+        const extraAndSkills = place.opts
             .filter(o => !baseStats.includes(o) && optionCounts[o])
-            .sort((a, b) => optionCounts[b] - optionCounts[a]).slice(0, 1);
+            .sort((a, b) => {
+                const countA = optionCounts[a];
+                const countB = optionCounts[b];
+                const isSkillA = skillStats.includes(a);
+                const isSkillB = skillStats.includes(b);
+
+                // 스킬 속성에 가중치(예: +0.5점)를 주어 기본적으로 스킬을 우선하되, 
+                // 추가 속성의 빈도가 더 높으면(예: x2 vs x1) 추가 속성이 위로 올라오게 함
+                const scoreA = countA + (isSkillA ? 0.6 : 0);
+                const scoreB = countB + (isSkillB ? 0.6 : 0);
+                return scoreB - scoreA;
+            });
+
+        const recommendedExtra = extraAndSkills.slice(0, 1);
 
         return { name: place.name, fullyMatchedWeapons, recommendedBases, recommendedExtra, matchCount: fullyMatchedWeapons.length };
     }).sort((a, b) => b.matchCount - a.matchCount || b.recommendedExtra.length - a.recommendedExtra.length);
@@ -459,5 +478,6 @@ init();
 </script>
 </body>
 </html>
+
 
 

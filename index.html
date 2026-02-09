@@ -2,25 +2,41 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>엔드필드 통합 스캐너 - 최종 안정화 버전</title>
+    <title>엔드필드 기질 스캐너 - 통합 가이드 버전</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
         :root { --primary: #4db8ff; --bg: #121212; --panel: #1e1e1e; --gold: #ffcc00; --purple: #a335ee; }
         body { background: var(--bg); color: #e0e0e0; font-family: 'Malgun Gothic', sans-serif; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        
+        /* 탭 스타일 */
         .tab-container { display: flex; gap: 5px; width: 100%; max-width: 1000px; margin-bottom: -1px; }
         .tab { padding: 10px 25px; background: #2a2a2a; border: 1px solid #333; border-bottom: none; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: bold; color: #888; transition: 0.2s; }
         .tab.active { background: var(--panel); color: var(--primary); border-top: 3px solid var(--primary); z-index: 2; }
+        
         .main-wrapper { display: grid; grid-template-columns: 450px 1fr; gap: 20px; max-width: 1000px; width: 100%; background: var(--panel); padding: 20px; border-radius: 0 12px 12px 12px; border: 1px solid #333; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
+        
+        /* 설명서 스타일 */
+        #guide-area { grid-column: span 2; display: none; flex-direction: column; gap: 20px; }
+        #guide-area.active { display: flex; }
+        .guide-step { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; border: 1px solid #444; }
+        .guide-title { color: var(--gold); font-size: 1.2em; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+        .guide-img { width: 100%; border-radius: 8px; border: 1px solid #555; margin-top: 15px; }
+
+        /* 스캐너 영역 스타일 */
+        #scanner-area { grid-column: span 2; display: none; grid-template-columns: 450px 1fr; gap: 20px; }
+        #scanner-area.active { display: grid; }
         .control-bar { grid-column: span 2; display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; }
         .scan-side { display: flex; flex-direction: column; gap: 15px; }
-        canvas { border: 2px solid #444; border-radius: 10px; width: 100%; background: #000; display: block; }
-        .opt-box { background: #252525; padding: 12px 18px; border-radius: 8px; border-left: 5px solid var(--primary); display: flex; align-items: center; height: 35px; margin-top: 5px; }
+        canvas { border: 2px solid #444; border-radius: 10px; width: 100%; background: #000; }
+        .opt-box { background: #252525; padding: 12px 18px; border-radius: 8px; border-left: 5px solid var(--primary); height: 35px; display: flex; align-items: center; margin-top: 5px; }
         .opt-name { font-size: 1.2em; font-weight: bold; color: #ffff00; }
         .section-box { background: rgba(255,255,255,0.03); border: 1px solid #333; border-radius: 10px; padding: 15px; min-height: 250px; }
-        .weapon-item { background: #2a2a2a; padding: 10px 15px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #383838; }
+        .weapon-item { background: #2a2a2a; padding: 10px 15px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #444; }
         .match-count { font-size: 0.85em; font-weight: bold; padding: 2px 10px; border-radius: 10px; background: var(--gold); color: #000; }
         .match-count.full { background: #ff4d4d; color: #fff; }
-        button { padding: 10px 30px; cursor: pointer; font-weight: bold; background: #007bff; color: white; border: none; border-radius: 8px; }
+        
+        button { padding: 10px 30px; cursor: pointer; font-weight: bold; background: #007bff; color: white; border: none; border-radius: 8px; transition: 0.2s; }
+        button:hover { background: #0056b3; }
         button:disabled { background: #444; cursor: not-allowed; }
         .filter-group { display: flex; gap: 15px; font-size: 0.85em; color: #aaa; }
     </style>
@@ -28,43 +44,73 @@
 <body>
 
 <div class="tab-container">
-    <div class="tab active" onclick="switchTab('warehouse')">귀중품 창고</div>
-    <div class="tab" onclick="switchTab('etching')">기질 식각</div>
+    <div id="tab-guide" class="tab active" onclick="switchTab('guide')">사용 설명서</div>
+    <div id="tab-warehouse" class="tab" onclick="switchTab('warehouse')">귀중품 창고</div>
+    <div id="tab-etching" class="tab" onclick="switchTab('etching')">기질 식각</div>
 </div>
 
 <div class="main-wrapper">
-    <div class="control-bar">
-        <button id="start-btn" disabled>엔진 로딩 중...</button>
-        <div class="filter-group">
-            <label><input type="checkbox" id="check-5star"> 5성 표시</label>
-            <label><input type="checkbox" id="include-2match"> 2개 일치 포함</label>
+    <div id="guide-area" class="active">
+        <div style="text-align: center; margin-bottom: 10px;">
+            <h1 style="color: var(--primary); margin-bottom: 5px;">Endfield 기질 스캐너 가이드</h1>
+            <p style="color: #888;">정확한 인식을 위해 아래 가이드에 맞춰 게임 화면을 공유해 주세요.</p>
         </div>
+
+        <div class="guide-step">
+            <div class="guide-title"><span>1️⃣</span> 화면 공유 설정</div>
+            <div>[화면 공유 시작] 클릭 후 <b>'창' 탭</b>에서 <b>Endfield 게임 창</b>을 선택하세요. '전체 화면'보다 '창' 선택이 인식이 더 정확합니다.</div>
+            <img src="1.jpg" class="guide-img" alt="Step 1">
+        </div>
+
+        <div class="guide-step">
+            <div class="guide-title"><span>2️⃣</span> 귀중품 창고 모드</div>
+            <div>가방의 [귀중품 창고] 메뉴에서 기질을 클릭한 화면입니다. 우측의 추가 스킬 3종을 자동으로 분석합니다.</div>
+            <img src="2.jpg" class="guide-img" alt="Step 2">
+        </div>
+
+        <div class="guide-step">
+            <div class="guide-title"><span>3️⃣</span> 기질 식각 모드</div>
+            <div>[기질 식각] 메뉴에서 기질을 장착/강화할 때의 화면입니다. 하단의 옵션 영역을 실시간으로 읽어냅니다.</div>
+            <img src="3.jpg" class="guide-img" alt="Step 3">
+        </div>
+
+        <button onclick="switchTab('warehouse')" style="width: 100%; padding: 20px; font-size: 1.2em; background: var(--primary);">설명서를 확인했습니다. 스캔 시작!</button>
     </div>
 
-    <div class="scan-side">
-        <div class="result-title" style="color:var(--primary); font-weight: bold;">분석 화면 (Real-time)</div>
-        <canvas id="view-canvas"></canvas>
-        <div class="opt-container">
-            <div class="opt-box"><div id="opt-1" class="opt-name">-</div></div>
-            <div class="opt-box"><div id="opt-2" class="opt-name">-</div></div>
-            <div class="opt-box"><div id="opt-3" class="opt-name">-</div></div>
+    <div id="scanner-area">
+        <div class="control-bar">
+            <button id="start-btn" disabled>엔진 로딩 중...</button>
+            <div class="filter-group">
+                <label><input type="checkbox" id="check-5star"> 5성 표시</label>
+                <label><input type="checkbox" id="include-2match"> 2개 일치 포함</label>
+            </div>
         </div>
-    </div>
 
-    <div class="result-side">
-        <div class="section-box">
-            <div style="color:var(--gold); font-weight:bold; border-bottom:1px solid #444; margin-bottom:10px; padding-bottom:5px;">6성 무기 매칭</div>
-            <div id="list-6star"></div>
+        <div class="scan-side">
+            <div style="color:var(--primary); font-weight: bold;">분석 화면 (Real-time)</div>
+            <canvas id="view-canvas"></canvas>
+            <div class="opt-container">
+                <div class="opt-box"><div id="opt-1" class="opt-name">-</div></div>
+                <div class="opt-box"><div id="opt-2" class="opt-name">-</div></div>
+                <div class="opt-box"><div id="opt-3" class="opt-name">-</div></div>
+            </div>
         </div>
-        <div id="section-5star" class="section-box" style="display: none; margin-top:10px;">
-            <div style="color:var(--purple); font-weight:bold; border-bottom:1px solid #444; margin-bottom:10px; padding-bottom:5px;">5성 무기 매칭</div>
-            <div id="list-5star"></div>
+
+        <div class="result-side">
+            <div class="section-box">
+                <div style="color:var(--gold); font-weight:bold; border-bottom:1px solid #444; margin-bottom:10px; padding-bottom:5px;">6성 무기 매칭</div>
+                <div id="list-6star"></div>
+            </div>
+            <div id="section-5star" class="section-box" style="display: none; margin-top:10px;">
+                <div style="color:var(--purple); font-weight:bold; border-bottom:1px solid #444; margin-bottom:10px; padding-bottom:5px;">5성 무기 매칭</div>
+                <div id="list-5star"></div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-// 무기 DB (공백 제거 버전)
+// --- 무기 데이터베이스 ---
 const WEAPONS_6 = [
   { name: "과거의 일품", opts: ["의지", "생명력", "효율"] },
   { name: "기사도 정신", opts: ["의지", "생명력", "의료"] },
@@ -118,14 +164,13 @@ const WEAPONS_5 = [
   { name: "O.B.J 헤비 버든", opts: ["힘", "생명력", "효율"] }
 ];
 
-let currentTab = 'warehouse';
+// --- 설정 및 변수 ---
+let currentTab = 'guide';
 let isRunning = false;
 let worker = null;
-let lastRecognizedOptions = ["-", "-", "-"]; // 깜빡임 방지용 메모리
+let lastRecognizedOptions = ["-", "-", "-"]; 
 
 const video = document.createElement('video');
-video.setAttribute('autoplay', ''); video.setAttribute('muted', ''); video.setAttribute('playsinline', '');
-
 const viewCanvas = document.getElementById('view-canvas'), viewCtx = viewCanvas.getContext('2d');
 const hiddenCanvas = document.createElement('canvas'), hiddenCtx = hiddenCanvas.getContext('2d');
 
@@ -140,26 +185,18 @@ const CONFIGS = {
     }
 };
 
+// --- 로직: 텍스트 보정 (어눔, 으루 등) ---
 function normalize(text) {
-    // 1. 모든 공백 제거 및 한글 제외 문자 제거
     let clean = text.replace(/\s+/g, "").replace(/[^\uAC00-\uD7A3]/g, ""); 
     if (!clean) return null;
-    
-    // 2. 불필요한 접미사 제거
     clean = clean.replace(/(증가|즘가|승가|즈기|증|가|력)$/, "");
 
-    // 3. [어둠/어눔 보정]
     if (/어[눔둠롬놈돔룸룸니ㄴㅁ]|[어엄움]/.test(clean)) {
         if (clean.includes("어") || clean === "엄" || clean === "움" || clean === "어눔") return "어둠";
     }
-
-    // 4. [힘/으루 보정] - '으루', '루', '그루' 등을 모두 '힘'으로 인식하도록 보강
     if (/그룹|그룰|그옵|그루|으루|^루$|흐임|^힘$/.test(clean)) return "힘";
-
-    // 5. [지능 보정]
     if (/지.능|시.능|지능|시능/.test(clean)) return "지능";
     
-    // 6. [복합 옵션명 보정]
     if (/궁.기|획.효|궁극/.test(clean)) return "궁극기획득효율"; 
     if (/치.효|시.효|치유/.test(clean)) return "치유효율";
     if (/능.치|주.요/.test(clean)) return "주요능력치";
@@ -180,17 +217,59 @@ function normalize(text) {
     
     const etc = ["고통","억제","잔혹","방출","추격","기예","골절","분쇄","사기","의료","효율"];
     for(let k of etc) { if(clean.includes(k)) return k; }
-    
     return clean;
 }
 
-async function initOCR() {
-    try {
-        worker = await Tesseract.createWorker('kor');
-        await worker.setParameters({ tessedit_pageseg_mode: '7' });
-        document.getElementById('start-btn').disabled = false;
-        document.getElementById('start-btn').textContent = "화면 공유 시작";
-    } catch (e) { alert("OCR 초기화 실패"); }
+// --- 로직: OCR 루프 및 깜빡임 방지 ---
+async function recognizeLoop() {
+    if (!isRunning || currentTab === 'guide') return;
+    const config = CONFIGS[currentTab];
+    if (video.readyState >= 2) {
+        const vw = video.videoWidth, vh = video.videoHeight;
+        const sx = vw * config.roi.x, sy = vh * config.roi.y, sw = vw * config.roi.w, sh = vh * config.roi.h;
+        
+        viewCanvas.width = sw; viewCanvas.height = sh;
+        viewCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
+        
+        hiddenCanvas.width = sw * 2; hiddenCanvas.height = sh * 2;
+        hiddenCtx.filter = 'contrast(170%) grayscale(100%)';
+        hiddenCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw * 2, sh * 2);
+
+        const currentOptions = [];
+        for (let i = 0; i < 3; i++) {
+            const box = config.boxes[i];
+            const res = await worker.recognize(hiddenCanvas, { 
+                rectangle: { left: box.x * hiddenCanvas.width, top: box.y * hiddenCanvas.height, width: box.w * hiddenCanvas.width, height: box.h * hiddenCanvas.height } 
+            });
+            const norm = normalize(res.data.text.trim());
+            if (norm) {
+                lastRecognizedOptions[i] = norm;
+                document.getElementById(`opt-${i+1}`).textContent = norm;
+            }
+            currentOptions.push(lastRecognizedOptions[i]);
+        }
+        updateMatches(currentOptions);
+    }
+    requestAnimationFrame(recognizeLoop);
+}
+
+// --- 인터페이스 제어 ---
+function switchTab(tabId) {
+    currentTab = tabId;
+    const guideArea = document.getElementById('guide-area');
+    const scannerArea = document.getElementById('scanner-area');
+    
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(`tab-${tabId}`).classList.add('active');
+    
+    if (tabId === 'guide') {
+        guideArea.classList.add('active');
+        scannerArea.classList.remove('active');
+    } else {
+        guideArea.classList.remove('active');
+        scannerArea.classList.add('active');
+        if (isRunning) recognizeLoop();
+    }
 }
 
 function updateMatches(currentOptions) {
@@ -218,37 +297,14 @@ function updateMatches(currentOptions) {
     }
 }
 
-async function recognizeLoop() {
-    if (!isRunning) return;
-    const config = CONFIGS[currentTab];
-    if (video.readyState >= 2) {
-        const vw = video.videoWidth, vh = video.videoHeight;
-        const sx = vw * config.roi.x, sy = vh * config.roi.y, sw = vw * config.roi.w, sh = vh * config.roi.h;
-        
-        viewCanvas.width = sw; viewCanvas.height = sh;
-        viewCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
-        
-        hiddenCanvas.width = sw * 2; hiddenCanvas.height = sh * 2;
-        hiddenCtx.filter = 'contrast(170%) grayscale(100%)';
-        hiddenCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw * 2, sh * 2);
-
-        const currentOptions = [];
-        for (let i = 0; i < 3; i++) {
-            const box = config.boxes[i];
-            const res = await worker.recognize(hiddenCanvas, { 
-                rectangle: { left: box.x * hiddenCanvas.width, top: box.y * hiddenCanvas.height, width: box.w * hiddenCanvas.width, height: box.h * hiddenCanvas.height } 
-            });
-            const norm = normalize(res.data.text.trim());
-            
-            if (norm) {
-                lastRecognizedOptions[i] = norm;
-                document.getElementById(`opt-${i+1}`).textContent = norm;
-            }
-            currentOptions.push(lastRecognizedOptions[i]);
-        }
-        updateMatches(currentOptions);
-    }
-    requestAnimationFrame(recognizeLoop);
+// --- 초기화 ---
+async function init() {
+    try {
+        worker = await Tesseract.createWorker('kor');
+        await worker.setParameters({ tessedit_pageseg_mode: '7' });
+        document.getElementById('start-btn').disabled = false;
+        document.getElementById('start-btn').textContent = "화면 공유 시작";
+    } catch (e) { alert("OCR 로딩 실패"); }
 }
 
 document.getElementById('start-btn').onclick = async () => {
@@ -256,17 +312,10 @@ document.getElementById('start-btn').onclick = async () => {
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "always" } });
         video.srcObject = stream;
         video.onloadedmetadata = () => { video.play(); isRunning = true; recognizeLoop(); };
-        document.getElementById('start-btn').disabled = true;
-    } catch (e) { alert("연결 오류: " + e.message); }
+    } catch (e) { alert("공유 취소 또는 오류"); }
 };
 
-function switchTab(tabId) {
-    currentTab = tabId;
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    event.currentTarget.classList.add('active');
-}
-
-initOCR();
+init();
 </script>
 </body>
 </html>

@@ -171,7 +171,7 @@ const WEAPONS_6 = [
   { name: "폭발 유닛", opts: ["주요능력치", "아츠강도", "방출"] },
   { name: "항로의 개척자", opts: ["지능", "냉기피해", "고통"] },
   { name: "헤라펜거", opts: ["힘", "공격력", "방출"] },
-  { name: "J.E.T", opts: ["주요능력치", "공격력", "억제"] }
+  { name: "J.E.T.", opts: ["주요능력치", "공격력", "억제"] }
 ];
 
 const WEAPONS_5 = [
@@ -191,11 +191,11 @@ const WEAPONS_5 = [
   { name: "최후의 메아리", opts: ["힘", "생명력", "의료"] },
   { name: "키메라의 정의", opts: ["힘", "궁극기획득효율", "잔혹"] },
   { name: "황무지의 방랑자", opts: ["지능", "전기피해", "고통"] },
-  { name: "O.B.J 벨로시투스", opts: ["민첩", "궁극기획득효율", "방출"] },
-  { name: "O.B.J 스파이크", opts: ["의지", "물리피해", "고통"] },
-  { name: "O.B.J 아츠 아이덴티티", opts: ["지능", "아츠강도", "추격"] },
-  { name: "O.B.J 엣지 오브 라이트", opts: ["민첩", "공격력", "흐름"] },
-  { name: "O.B.J 헤비 버든", opts: ["힘", "생명력", "효율"] }
+  { name: "O.B.J. 벨로시투스", opts: ["민첩", "궁극기획득효율", "방출"] },
+  { name: "O.B.J. 스파이크", opts: ["의지", "물리피해", "고통"] },
+  { name: "O.B.J. 아츠 아이덴티티", opts: ["지능", "아츠강도", "추격"] },
+  { name: "O.B.J. 엣지 오브 라이트", opts: ["민첩", "공격력", "흐름"] },
+  { name: "O.B.J. 헤비 버든", opts: ["힘", "생명력", "효율"] }
 ];
 
 // --- 설정 및 변수 ---
@@ -401,7 +401,41 @@ function switchTab(tabId) {
         if (isRunning) recognizeLoop();
     }
 }
+    // 무기 이름에 : 포함되는거 제거 버전
+function initFarmingUI() {
+    const g6 = document.getElementById('grid-6star'), g5 = document.getElementById('grid-5star');
+    
+    const createCard = (w, path) => {
+        const div = document.createElement('div'); 
+        div.className = 'weapon-card';
+        
+        // 파일명에서 콜론(:)과 공백을 제거하거나 치환하여 안전한 파일명 생성
+        // 예: "작품: 중생" -> "작품 중생" (콜론만 삭제)
+        const safeFileName = w.name.replace(/:/g, ""); 
+        
+        div.onclick = () => {
+            if(selectedWeapons.has(w)) { 
+                selectedWeapons.delete(w); 
+                div.classList.remove('selected'); 
+            } else { 
+                selectedWeapons.add(w); 
+                div.classList.add('selected'); 
+            }
+            updateFarmingResults();
+        };
 
+        // 실제 파일은 '작품 중생.png' 등으로 저장되어 있어야 함
+        div.innerHTML = `
+            <img src="${path}/${safeFileName}.png" onerror="this.src='https://via.placeholder.com/75?text=No+Img'">
+            <div>${w.name}</div>
+        `;
+        return div;
+    };
+
+    WEAPONS_6.forEach(w => g6.appendChild(createCard(w, '6성 무기')));
+    WEAPONS_5.forEach(w => g5.appendChild(createCard(w, '5성 무기')));
+}
+    
 // --- 초기화 ---
 async function init() {
     initFarmingUI();
@@ -425,3 +459,4 @@ init();
 </script>
 </body>
 </html>
+

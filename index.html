@@ -190,23 +190,24 @@ function normalize(text) {
     let clean = text.replace(/\s+/g, "").replace(/[^\uAC00-\uD7A3]/g, ""); 
     if (!clean) return null;
 
-    // 2. 오독하기 쉬운 불필요한 접미사 제거 강화
-    // '중개', '증가', '력', '가' 등을 한꺼번에 제거합니다.
-    clean = clean.replace(/(중개|증가|즘가|승가|즈기|증|가|력|계|기)$/, "");
+    // 2. 오독하기 쉬운 불필요한 접미사 제거 강화 (격턱, 중개 등 처리)
+    clean = clean.replace(/(중개|증가|즘가|승가|즈기|증|가|력|계|기|턱|덕)$/, "");
 
     // 3. [어둠/어눔 보정]
     if (/어[눔둠롬놈돔룸룸니ㄴㅁ]|[어엄움]/.test(clean)) {
         if (clean.includes("어") || clean === "엄" || clean === "움" || clean === "어눔") return "어둠";
     }
 
-    // 4. [힘/으루/힘중개 보정]
-    // '힘중개'에서 '중개'가 붙어 있어도 '힘'으로 인식하도록 패턴 보강
+    // 4. [힘/으루 보정]
     if (/그룹|그룰|그옵|그루|으루|^루$|흐임|힘중개|^힘$/.test(clean)) return "힘";
 
-    // 5. [지능 보정]
+    // 5. [고통/고충 보정] - NEW!
+    if (/고[충통퉁특토]|[고구]통/.test(clean)) return "고통";
+
+    // 6. [지능 보정]
     if (/지.능|시.능|지능|시능/.test(clean)) return "지능";
     
-    // 6. [복합 옵션명 보정]
+    // 7. [복합 옵션명 보정]
     if (/궁.기|획.효|궁극/.test(clean)) return "궁극기획득효율"; 
     if (/치.효|시.효|치유/.test(clean)) return "치유효율";
     if (/능.치|주.요/.test(clean)) return "주요능력치";
@@ -221,11 +222,14 @@ function normalize(text) {
 
     if (clean.includes("민첩")) return "민첩";
     if (clean.includes("의지")) return "의지";
-    if (clean.includes("공격")) return "공격력";
+    
+    // 공격력 보정 강화: '격턱', '공격', '격' 등이 포함되면 공격력으로 인식
+    if (/공격|격턱|격덕|^공격$/.test(clean) || clean === "격") return "공격력";
+    
     if (clean.includes("생명")) return "생명력";
     if (clean.includes("흐름")) return "흐름";
     
-    const etc = ["고통","억제","잔혹","방출","추격","기예","골절","분쇄","사기","의료","효율"];
+    const etc = ["억제","잔혹","방출","추격","기예","골절","분쇄","사기","의료","효율"];
     for(let k of etc) { if(clean.includes(k)) return k; }
     
     return clean;
@@ -331,3 +335,4 @@ init();
 </body>
 
 </html>
+

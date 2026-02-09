@@ -27,13 +27,13 @@
         .guide-img { width: 100%; border-radius: 8px; border: 1px solid #555; margin-top: 15px; }
 
         /* 파밍 가이드 스타일 */
-        .farming-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
-        .weapon-selector { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; max-height: 700px; overflow-y: auto; }
-        .weapon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 8px; margin-bottom: 20px; }
+        .farming-layout { display: grid; grid-template-columns: 1fr 350px; gap: 20px; }
+        .weapon-selector { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; max-height: 800px; overflow-y: auto; }
+        .weapon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; margin-bottom: 20px; }
         .weapon-card { cursor: pointer; border: 2px solid transparent; border-radius: 8px; overflow: hidden; background: #2a2a2a; transition: 0.2s; }
         .weapon-card.selected { border-color: var(--gold); box-shadow: 0 0 10px rgba(255,204,0,0.4); }
-        .weapon-card img { width: 100%; height: 75px; object-fit: cover; display: block; }
-        .weapon-card div { font-size: 0.65em; padding: 4px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .weapon-card img { width: 100%; height: 80px; object-fit: cover; display: block; }
+        .weapon-card div { font-size: 0.7em; padding: 5px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .recommend-panel { background: rgba(255,255,255,0.03); border: 1px solid #333; border-radius: 10px; padding: 15px; }
         .place-card { background: #252525; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #444; }
         .place-card.top { border-left-color: var(--gold); background: #2d2a20; }
@@ -64,16 +64,30 @@
 
 <div class="main-wrapper">
     <div id="area-guide" class="content-area active">
-        <div style="text-align: center;">
-            <h1 style="color: var(--primary); margin: 0 0 5px 0;">Endfield 기질 스캐너 가이드</h1>
+        <div style="text-align: center; margin-bottom: 10px;">
+            <h1 style="color: var(--primary); margin-bottom: 5px;">Endfield 기질 스캐너 가이드</h1>
             <p style="color: #888;">정확한 인식을 위해 아래 가이드에 맞춰 게임 화면을 공유해 주세요.</p>
         </div>
+
         <div class="guide-step">
             <div class="guide-title"><span>1️⃣</span> 화면 공유 설정</div>
-            <div>[화면 공유 시작] 클릭 후 <b>'창' 탭</b>에서 <b>Endfield 게임 창</b>을 선택하세요.</div>
+            <div>[화면 공유 시작] 클릭 후 <b>'창' 탭</b>에서 <b>Endfield 게임 창</b>을 선택하세요. '전체 화면'보다 '창' 선택이 인식이 더 정확합니다.</div>
             <img src="1.jpg" class="guide-img" alt="Step 1">
         </div>
-        <button onclick="switchTab('farming')" style="width: 100%; padding: 20px; font-size: 1.2em; background: var(--primary);">설명서를 확인했습니다!</button>
+
+        <div class="guide-step">
+            <div class="guide-title"><span>2️⃣</span> 귀중품 창고 모드</div>
+            <div>가방의 [귀중품 창고] 메뉴에서 기질을 클릭한 화면입니다. 우측의 추가 스킬 3종을 자동으로 분석합니다.</div>
+            <img src="2.jpg" class="guide-img" alt="Step 2">
+        </div>
+
+        <div class="guide-step">
+            <div class="guide-title"><span>3️⃣</span> 기질 식각 모드</div>
+            <div>[기질 식각] 메뉴에서 기질을 장착/강화할 때의 화면입니다. 하단의 옵션 영역을 실시간으로 읽어냅니다.</div>
+            <img src="3.jpg" class="guide-img" alt="Step 3">
+        </div>
+
+        <button onclick="switchTab('farming')" style="width: 100%; padding: 20px; font-size: 1.2em; background: var(--primary);">설명서를 확인했습니다. 시작하기!</button>
     </div>
 
     <div id="area-farming" class="content-area">
@@ -157,7 +171,7 @@ const WEAPONS_6 = [
   { name: "폭발 유닛", opts: ["주요능력치", "아츠강도", "방출"] },
   { name: "항로의 개척자", opts: ["지능", "냉기피해", "고통"] },
   { name: "헤라펜거", opts: ["힘", "공격력", "방출"] },
-  { name: "J.E.T.", opts: ["주요능력치", "공격력", "억제"] }
+  { name: "J.E.T", opts: ["주요능력치", "공격력", "억제"] }
 ];
 
 const WEAPONS_5 = [
@@ -171,17 +185,17 @@ const WEAPONS_5 = [
   { name: "선교의 자유", opts: ["의지", "치유효율", "의료"] },
   { name: "숭배의 시선", opts: ["민첩", "물리피해", "어둠"] },
   { name: "십이문", opts: ["민첩", "공격력", "고통"] },
-  { name: "이성적인 작별", opts: ["힘", "열기피해", "추격"] },
+  { name: "이상적인 작별", opts: ["힘", "열기피해", "추격"] },
   { name: "작품: 중생", opts: ["민첩", "아츠강도", "고통"] },
   { name: "중심력", opts: ["의지", "전기피해", "억제"] },
   { name: "최후의 메아리", opts: ["힘", "생명력", "의료"] },
   { name: "키메라의 정의", opts: ["힘", "궁극기획득효율", "잔혹"] },
   { name: "황무지의 방랑자", opts: ["지능", "전기피해", "고통"] },
-  { name: "O.B.J. 벨로시투스", opts: ["민첩", "궁극기획득효율", "방출"] },
-  { name: "O.B.J. 스파이크", opts: ["의지", "물리피해", "고통"] },
-  { name: "O.B.J. 아츠 아이덴티티", opts: ["지능", "아츠강도", "추격"] },
-  { name: "O.B.J. 엣지 오브 라이트", opts: ["민첩", "공격력", "흐름"] },
-  { name: "O.B.J. 헤비 버든", opts: ["힘", "생명력", "효율"] }
+  { name: "O.B.J 벨로시투스", opts: ["민첩", "궁극기획득효율", "방출"] },
+  { name: "O.B.J 스파이크", opts: ["의지", "물리피해", "고통"] },
+  { name: "O.B.J 아츠 아이덴티티", opts: ["지능", "아츠강도", "추격"] },
+  { name: "O.B.J 엣지 오브 라이트", opts: ["민첩", "공격력", "흐름"] },
+  { name: "O.B.J 헤비 버든", opts: ["힘", "생명력", "효율"] }
 ];
 
 // --- 설정 및 변수 ---
@@ -206,7 +220,7 @@ const CONFIGS = {
     }
 };
 
-// --- OCR 보정 (Normalize) ---
+// --- OCR 보정 ---
 function normalize(text) {
     let clean = text.replace(/\s+/g, "").replace(/[^\uAC00-\uD7A3]/g, ""); 
     if (!clean) return null;
@@ -266,7 +280,7 @@ async function recognizeLoop() {
     requestAnimationFrame(recognizeLoop);
 }
 
-// --- 매칭 업데이트 (스캐너용) ---
+// --- 매칭 업데이트 ---
 function updateMatches(currentOptions) {
     const list6 = document.getElementById('list-6star'), list5 = document.getElementById('list-5star');
     const show5 = document.getElementById('check-5star').checked;
@@ -289,33 +303,14 @@ function updateMatches(currentOptions) {
     }
 }
 
-// --- 파밍 가이드 기능 ---
-function initFarmingUI() {
-    const g6 = document.getElementById('grid-6star'), g5 = document.getElementById('grid-5star');
-    const createCard = (w, path) => {
-        const div = document.createElement('div'); div.className = 'weapon-card';
-        div.onclick = () => {
-            if(selectedWeapons.has(w)) { selectedWeapons.delete(w); div.classList.remove('selected'); }
-            else { selectedWeapons.add(w); div.classList.add('selected'); }
-            updateFarmingResults();
-        };
-        div.innerHTML = `<img src="${path}/${w.name}.png" onerror="this.src='https://via.placeholder.com/75?text=No+Img'"><div>${w.name}</div>`;
-        return div;
-    };
-    WEAPONS_6.forEach(w => g6.appendChild(createCard(w, '6성 무기')));
-    WEAPONS_5.forEach(w => g5.appendChild(createCard(w, '5성 무기')));
-}
-
+// --- 파밍 가이드 로직 ---
 function updateFarmingResults() {
     const resDiv = document.getElementById('farming-results');
     if (selectedWeapons.size === 0) { resDiv.innerHTML = "무기 사진을 클릭하여 선택하세요."; return; }
 
-    // 1. 옵션별 필요 빈도수 계산 (상단 바 표시용)
     const optionCounts = {};
     selectedWeapons.forEach(w => {
-        w.opts.forEach(o => {
-            optionCounts[o] = (optionCounts[o] || 0) + 1;
-        });
+        w.opts.forEach(o => { optionCounts[o] = (optionCounts[o] || 0) + 1; });
     });
 
     const sortedNeeded = Object.entries(optionCounts)
@@ -325,40 +320,24 @@ function updateFarmingResults() {
             return `<span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; margin:2px; display:inline-block;">${name}${displayCount}</span>`;
         });
 
-    // 2. 지역별 분석: "3개 옵션이 모두 해당 지역 드랍풀에 포함되는 무기" 찾기
     const results = PLACES.map(place => {
         const placeOpts = new Set(place.opts);
-        const fullyMatchedWeapons = []; // 3옵션 모두 뜨는 무기들
-
+        const fullyMatchedWeapons = [];
         selectedWeapons.forEach(weapon => {
-            const isFullMatch = weapon.opts.every(opt => placeOpts.has(opt));
-            if (isFullMatch) {
-                fullyMatchedWeapons.push(weapon.name);
-            }
+            if (weapon.opts.every(opt => placeOpts.has(opt))) fullyMatchedWeapons.push(weapon.name);
         });
 
-        // 지역별 추천 옵션 4개 추출 (가장 많이 필요한 순)
         const baseStats = ["민첩", "힘", "의지", "지능", "주요능력치"];
         const recommendedBases = place.opts
             .filter(o => baseStats.includes(o) && optionCounts[o])
-            .sort((a, b) => optionCounts[b] - optionCounts[a])
-            .slice(0, 3);
-            
+            .sort((a, b) => optionCounts[b] - optionCounts[a]).slice(0, 3);
         const recommendedExtra = place.opts
             .filter(o => !baseStats.includes(o) && optionCounts[o])
-            .sort((a, b) => optionCounts[b] - optionCounts[a])
-            .slice(0, 1);
+            .sort((a, b) => optionCounts[b] - optionCounts[a]).slice(0, 1);
 
-        return {
-            name: place.name,
-            fullyMatchedWeapons,
-            recommendedBases,
-            recommendedExtra,
-            matchCount: fullyMatchedWeapons.length
-        };
+        return { name: place.name, fullyMatchedWeapons, recommendedBases, recommendedExtra, matchCount: fullyMatchedWeapons.length };
     }).sort((a, b) => b.matchCount - a.matchCount || b.recommendedExtra.length - a.recommendedExtra.length);
 
-    // 3. 결과 출력
     let html = `
         <div style="margin-bottom:15px; padding:12px; background:rgba(0,0,0,0.4); border-radius:8px; border:1px solid #444;">
             <div style="color:var(--primary); font-size:0.8em; font-weight:bold; margin-bottom:8px;">📊 통합 목표 옵션 (우선순위순)</div>
@@ -366,7 +345,6 @@ function updateFarmingResults() {
         </div>`;
 
     results.forEach((res, i) => {
-        // 무기 이름 목록 생성
         const weaponList = res.fullyMatchedWeapons.length > 0 
             ? `<div style="color:var(--gold); font-size:0.85em; margin-top:5px;">🎯 파밍 대상: ${res.fullyMatchedWeapons.join(', ')}</div>`
             : `<div style="color:#777; font-size:0.85em; margin-top:5px;">적합한 무기 없음</div>`;
@@ -388,12 +366,28 @@ function updateFarmingResults() {
     resDiv.innerHTML = html;
 }
 
+function initFarmingUI() {
+    const g6 = document.getElementById('grid-6star'), g5 = document.getElementById('grid-5star');
+    const createCard = (w, path) => {
+        const div = document.createElement('div'); div.className = 'weapon-card';
+        const safeFileName = w.name.replace(/:/g, ""); 
+        div.onclick = () => {
+            if(selectedWeapons.has(w)) { selectedWeapons.delete(w); div.classList.remove('selected'); }
+            else { selectedWeapons.add(w); div.classList.add('selected'); }
+            updateFarmingResults();
+        };
+        div.innerHTML = `<img src="${path}/${safeFileName}.png" onerror="this.src='https://via.placeholder.com/75?text=No+Img'"><div>${w.name}</div>`;
+        return div;
+    };
+    WEAPONS_6.forEach(w => g6.appendChild(createCard(w, '6성 무기')));
+    WEAPONS_5.forEach(w => g5.appendChild(createCard(w, '5성 무기')));
+}
+
 // --- 인터페이스 제어 ---
 function switchTab(tabId) {
     currentTab = tabId;
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.getElementById(`tab-${tabId}`).classList.add('active');
-    
     document.getElementById('area-guide').classList.remove('active');
     document.getElementById('area-farming').classList.remove('active');
     document.getElementById('scanner-area').classList.remove('active');
@@ -406,40 +400,6 @@ function switchTab(tabId) {
         document.getElementById('scanner-area').classList.add('active');
         if (isRunning) recognizeLoop();
     }
-}
-
-function initFarmingUI() {
-    const g6 = document.getElementById('grid-6star'), g5 = document.getElementById('grid-5star');
-    
-    const createCard = (w, path) => {
-        const div = document.createElement('div'); 
-        div.className = 'weapon-card';
-        
-        // 파일명에서 콜론(:)과 공백을 제거하거나 치환하여 안전한 파일명 생성
-        // 예: "작품: 중생" -> "작품 중생" (콜론만 삭제)
-        const safeFileName = w.name.replace(/:/g, ""); 
-        
-        div.onclick = () => {
-            if(selectedWeapons.has(w)) { 
-                selectedWeapons.delete(w); 
-                div.classList.remove('selected'); 
-            } else { 
-                selectedWeapons.add(w); 
-                div.classList.add('selected'); 
-            }
-            updateFarmingResults();
-        };
-
-        // 실제 파일은 '작품 중생.png' 등으로 저장되어 있어야 함
-        div.innerHTML = `
-            <img src="${path}/${safeFileName}.png" onerror="this.src='https://via.placeholder.com/75?text=No+Img'">
-            <div>${w.name}</div>
-        `;
-        return div;
-    };
-
-    WEAPONS_6.forEach(w => g6.appendChild(createCard(w, '6성 무기')));
-    WEAPONS_5.forEach(w => g5.appendChild(createCard(w, '5성 무기')));
 }
 
 // --- 초기화 ---

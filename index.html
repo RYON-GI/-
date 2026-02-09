@@ -262,6 +262,7 @@ let regionBases = new Set();
 let regionExtra = null;
 let currentMainTab = 'guide';
 let currentSubTabs = { farming: 'region', search: 'warehouse' };
+let lastRecognizedOptions = ["-", "-", "-"]; // [추가됨] 깜빡임 방지용 데이터
 
 const video = document.createElement('video');
 const viewCanvas = document.getElementById('view-canvas'), viewCtx = viewCanvas.getContext('2d');
@@ -499,19 +500,50 @@ function resetWeaponSelection() {
 }
 
 // --- 스캐너 (OCR) ---
+
+// [교체됨] 고도화된 텍스트 보정 로직
 function normalize(text) {
-    let clean = text.replace(/\s+/g, "").replace(/[^\uAC00-\uD7A3]/g, "");
-    const targets = ["민첩","힘","의지","지능","주요능력치","공격력","생명력","물리피해","열기피해","전기피해","냉기피해","자연피해","치명타확률","아츠강도","궁극기획득효율","아츠피해","치유효율","강공","억제","추격","분쇄","기예","방출","흐름","효율","사기","고통","의료","골절","잔혹","어둠"];
-    for(let t of targets) { if(clean.includes(t)) return t; }
-    return null;
+    let clean = text.replace(/\s+/g, "").replace(/[^\uAC00-\uD7A3]/g, ""); 
+    if (!clean) return null;
+    clean = clean.replace(/(증가|즘가|승가|즈기|증|가|력)$/, "");
+
+    if (/어[눔둠롬놈돔룸룸니ㄴㅁ]|[어엄움]/.test(clean)) {
+        if (clean.includes("어") || clean === "엄" || clean === "움" || clean === "어눔") return "어둠";
+    }
+    if (/그룹|그룰|그옵|그루|으루|^루$|흐임|^힘$/.test(clean)) return "힘";
+    if (/지.능|시.능|지능|시능/.test(clean)) return "지능";
+    
+    if (/궁.기|획.효|궁극/.test(clean)) return "궁극기획득효율"; 
+    if (/치.효|시.효|치유/.test(clean)) return "치유효율";
+    if (/능.치|주.요/.test(clean)) return "주요능력치";
+    if (/치.타|명.타|확.률/.test(clean)) return "치명타확률";
+    
+    if (/아.츠|아.측/.test(clean)) return clean.includes("피") ? "아츠피해" : "아츠강도";
+    if (/물.리|물.피/.test(clean)) return "물리피해";
+    if (/냉.기/.test(clean)) return "냉기피해";
+    if (/열.기/.test(clean)) return "열기피해";
+    if (/전.기/.test(clean)) return "전기피해";
+    if (/자.연/.test(clean)) return "자연피해";
+
+    if (clean.includes("민첩")) return "민첩";
+    if (clean.includes("의지")) return "의지";
+    if (clean.includes("공격")) return "공격력";
+    if (clean.includes("생명")) return "생명력";
+    if (clean.includes("흐름")) return "흐름";
+    
+    const etc = ["고통","억제","잔혹","방출","추격","기예","골절","분쇄","사기","의료","효율"];
+    for(let k of etc) { if(clean.includes(k)) return k; }
+    return clean;
 }
 
+// [교체됨] 깜빡임 방지 로직이 적용된 OCR 루프
 async function recognizeLoop() {
-    if (!isRunning || currentMainTab !== 'search') return;
-    const config = CONFIGS[currentSubTabs.search];
+    if (!isRunning || currentMainTab === 'guide') return; // currentTab -> currentMainTab 수정
+    const config = CONFIGS[currentSubTabs.search]; // CONFIGS[currentTab] -> currentSubTabs.search 수정
     if (video.readyState >= 2) {
         const vw = video.videoWidth, vh = video.videoHeight;
         const sx = vw * config.roi.x, sy = vh * config.roi.y, sw = vw * config.roi.w, sh = vh * config.roi.h;
+        
         viewCanvas.width = sw; viewCanvas.height = sh;
         viewCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
         
@@ -519,15 +551,20 @@ async function recognizeLoop() {
         hiddenCtx.filter = 'contrast(170%) grayscale(100%)';
         hiddenCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw * 2, sh * 2);
 
-        const found = [];
+        const currentOptions = [];
         for (let i = 0; i < 3; i++) {
-            const b = config.boxes[i];
-            const res = await worker.recognize(hiddenCanvas, { rectangle: { left: b.x * 2 * sw, top: b.y * 2 * sh, width: b.w * 2 * sw, height: b.h * 2 * sh } });
-            const norm = normalize(res.data.text);
-            document.getElementById(`opt-${i+1}`).textContent = norm || "-";
-            if(norm) found.push(norm);
+            const box = config.boxes[i];
+            const res = await worker.recognize(hiddenCanvas, { 
+                rectangle: { left: box.x * hiddenCanvas.width, top: box.y * hiddenCanvas.height, width: box.w * hiddenCanvas.width, height: box.h * hiddenCanvas.height } 
+            });
+            const norm = normalize(res.data.text.trim());
+            if (norm) {
+                lastRecognizedOptions[i] = norm; // 새 값이 있을 때만 업데이트
+                document.getElementById(`opt-${i+1}`).textContent = norm;
+            }
+            currentOptions.push(lastRecognizedOptions[i]); // 없으면 기존 값 유지
         }
-        updateScannerMatch(found);
+        updateScannerMatch(currentOptions); // updateMatches -> updateScannerMatch 수정
     }
     requestAnimationFrame(recognizeLoop);
 }
@@ -589,5 +626,3 @@ init();
 </script>
 </body>
 </html>
-
-

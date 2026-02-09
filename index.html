@@ -389,15 +389,20 @@ function resetRegionFilters() {
     if(selectedRegion) selectRegion(selectedRegion);
 }
 
-// --- 무기별 파밍 UI ---
+// --- 무기별 파밍 UI (로직 수정 버전) ---
 function initFarmingUI() {
     const g6 = document.getElementById('grid-6star'), g5 = document.getElementById('grid-5star');
     const createCard = (w, path) => {
         const div = document.createElement('div');
         div.className = 'weapon-card';
         div.onclick = () => {
-            if(selectedWeapons.has(w)) { selectedWeapons.delete(w); div.classList.remove('selected'); }
-            else { selectedWeapons.add(w); div.classList.add('selected'); }
+            if(selectedWeapons.has(w)) { 
+                selectedWeapons.delete(w); 
+                div.classList.remove('selected'); 
+            } else { 
+                selectedWeapons.add(w); 
+                div.classList.add('selected'); 
+            }
             updateFarmingResults();
         };
         div.innerHTML = `<img src="${path}/${w.name.replace(/:/g,"")}.png" onerror="this.src='https://via.placeholder.com/80?text=No+Img'"><div>${w.name}</div>`;
@@ -408,29 +413,57 @@ function initFarmingUI() {
 }
 
 function updateFarmingResults() {
-    const optContainer = document.getElementById('total-target-opts');
+    const selectedListContainer = document.getElementById('total-target-opts'); // ID는 유지하되 내용은 무기정보로 활용
     const resultContainer = document.getElementById('farming-results-container');
+    
     if (selectedWeapons.size === 0) {
-        optContainer.innerHTML = `<span>무기를 선택해 주세요.</span>`;
-        resultContainer.innerHTML = ""; return;
+        selectedListContainer.innerHTML = `<span style="color:#666; font-size:0.85em;">무기를 선택하면 상세 정보가 표시됩니다.</span>`;
+        resultContainer.innerHTML = `<div style="text-align:center; padding: 40px; color:#666;">선택된 무기가 없습니다.</div>`;
+        return;
     }
-    const allOpts = new Set();
-    selectedWeapons.forEach(w => w.opts.forEach(o => allOpts.add(o)));
-    optContainer.innerHTML = Array.from(allOpts).map(o => `<span class="opt-tag">${o}</span>`).join('');
 
+    // 1. 선택한 무기 목록 및 옵션 표시
+    selectedListContainer.innerHTML = Array.from(selectedWeapons).map(w => `
+        <div style="background:#333; padding:8px 12px; border-radius:6px; margin-bottom:5px; border-left:3px solid var(--gold);">
+            <div style="font-weight:bold; font-size:0.9em; color:var(--gold);">${w.name}</div>
+            <div style="font-size:0.8em; color:#bbb;">필요 옵션: ${w.opts.join(', ')}</div>
+        </div>
+    `).join('');
+
+    // 2. 지역별 추천 파밍 옵션 계산
     const results = PLACES.map(p => {
-        const matches = Array.from(selectedWeapons).filter(w => w.opts.every(o => p.opts.includes(o))).map(w => w.name);
-        return { name: p.name, list: matches, count: matches.length };
-    }).sort((a,b) => b.count - a.count);
+        // 이 지역에서 파밍 가능한(옵션이 포함된) 선택 무기들
+        const matchedWeapons = Array.from(selectedWeapons).filter(w => 
+            w.opts.every(opt => p.opts.includes(opt))
+        );
 
+        // 해당 무기들을 위해 이 지역에서 노려야 할 핵심 옵션들(중복 제거)
+        const targetOpts = new Set();
+        matchedWeapons.forEach(w => w.opts.forEach(o => targetOpts.add(o)));
+
+        return { 
+            name: p.name, 
+            matchedCount: matchedWeapons.length,
+            recommendOpts: Array.from(targetOpts)
+        };
+    }).sort((a,b) => b.matchedCount - a.matchedCount);
+
+    // 3. 결과 렌더링
     resultContainer.innerHTML = results.map(r => `
-        <div class="result-region-card ${r.count > 0 ? 'best' : ''}">
-            <div style="width:100%;">
-                <div style="display:flex; justify-content:space-between; font-weight:bold;">
-                    <span>${r.name}</span>
-                    <span style="color:var(--gold)">${r.count}개 종결 가능</span>
+        <div class="result-region-card ${r.matchedCount > 0 ? 'best' : ''}" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+            <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+                <strong style="font-size:1.1em; color:${r.matchedCount > 0 ? 'var(--primary)' : '#888'}">${r.name}</strong>
+                <span style="background:var(--gold); color:#000; padding:2px 8px; border-radius:10px; font-size:0.8em; font-weight:bold;">
+                    ${r.matchedCount}개 무기 파밍 가능
+                </span>
+            </div>
+            <div style="width:100%; background:rgba(0,0,0,0.3); padding:10px; border-radius:6px;">
+                <div style="font-size:0.8em; color:var(--gold); margin-bottom:5px; font-weight:bold;">🎯 추천 파밍 옵션</div>
+                <div style="display:flex; flex-wrap:wrap; gap:5px;">
+                    ${r.recommendOpts.length > 0 
+                        ? r.recommendOpts.map(opt => `<span style="font-size:0.85em; color:#eee; background:#444; padding:2px 8px; border-radius:4px;">${opt}</span>`).join('')
+                        : '<span style="color:#666; font-size:0.85em;">추천 옵션 없음</span>'}
                 </div>
-                <div style="font-size:0.85em; color:#aaa; margin-top:5px;">${r.list.length > 0 ? r.list.join(', ') : '가능한 무기 없음'}</div>
             </div>
         </div>
     `).join('');
@@ -533,3 +566,4 @@ init();
 </script>
 </body>
 </html>
+

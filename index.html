@@ -446,7 +446,9 @@ function normalize(text) {
     // 2순위: 그 외 아츠가 포함된 모든 경우는 피해로 간주
         return "아츠피해";
     }
-    if (/물[리이]/.test(clean)) return "물리피해";
+    if (/물[리이]|는그리|그리톨/.test(clean)) {
+    return "물리피해";
+    }
     if (/냉[기기]/.test(clean)) return "냉기피해";
     if (/열[기이]/.test(clean)) return "열기피해";
     if (/전[기이]/.test(clean)) return "전기피해";

@@ -2,10 +2,10 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>엔드필드 기질 스캐너 & 파밍 가이드</title>
+    <title>엔드필드 통합 스캐너 (WIDE 대응판)</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
-        :root { --primary: #4db8ff; --bg: #121212; --panel: #1e1e1e; --gold: #ffcc00; --purple: #a335ee; }
+        :root { --primary: #4db8ff; --bg: #121212; --panel: #1e1e1e; --gold: #ffcc00; --purple: #a335ee; --green: #28a745; --red: #ff4d4d; }
         body { background: var(--bg); color: #e0e0e0; font-family: 'Malgun Gothic', sans-serif; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
         
         /* 메인 탭 */
@@ -23,7 +23,7 @@
         .sub-tab { padding: 8px 18px; background: #333; border-radius: 4px; cursor: pointer; font-size: 0.9em; transition: 0.2s; color: #aaa; }
         .sub-tab.active { background: var(--primary); color: #000; font-weight: bold; }
 
-        /* 지역별/무기별 레이아웃 */
+        /* 레이아웃 공통 */
         .area-grid-layout, .weapon-farming-layout { display: grid; grid-template-columns: 1fr 380px; gap: 20px; }
         .region-select-box { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
         .region-btn { padding: 10px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; cursor: pointer; color: #ccc; flex: 1; text-align: center; min-width: 120px; }
@@ -46,18 +46,20 @@
         .opt-tag-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
         .opt-tag { padding: 4px 10px; background: #3d3d3d; border-radius: 4px; font-size: 0.85em; color: #ddd; border: 1px solid #444; }
 
-        /* 스캐너 */
+        /* 스캐너 UI */
         .scanner-main-layout { display: grid; grid-template-columns: 450px 1fr; gap: 20px; }
-        .control-bar { display: flex; align-items: center; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom: 20px; gap: 20px; }
-        #view-canvas { border: 2px solid #444; border-radius: 10px; width: 100%; background: #000; }
+        .control-bar { display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        #view-canvas { border: 2px solid #444; border-radius: 10px; width: 100%; background: #000; margin-bottom: 10px; }
+        
         .opt-box { background: #252525; padding: 10px; border-radius: 8px; border-left: 5px solid var(--primary); margin-top: 8px; }
-        .opt-name { font-size: 1.1em; font-weight: bold; color: #ffff00; }
+        .opt-name { font-size: 1.2em; font-weight: bold; color: var(--gold); }
+        .raw-text { font-family: monospace; font-size: 0.8em; color: var(--green); margin-top: 4px; }
+        
         .section-box { background: rgba(255,255,255,0.03); border: 1px solid #333; border-radius: 10px; padding: 15px; min-height: 200px; margin-bottom: 10px; }
+        .badge { padding: 4px 10px; border-radius: 4px; font-size: 0.8em; background: #444; color: #fff; margin-left: 10px; }
 
         button { padding: 10px 20px; cursor: pointer; font-weight: bold; background: #007bff; color: white; border: none; border-radius: 8px; }
-        .filter-group { display: flex; gap: 15px; font-size: 0.9em; color: #aaa; }
-
-        /* 결과 카드 스타일 (공용) */
+        #stop-btn { background: var(--red); }
         .result-region-card { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid transparent; }
         .result-region-card.best { border-color: rgba(255, 204, 0, 0.4); background: rgba(255, 204, 0, 0.05); }
     </style>
@@ -67,12 +69,12 @@
 <div class="tab-container">
     <div id="tab-guide" class="tab active" onclick="switchTab('guide')">사용 설명서</div>
     <div id="tab-farming" class="tab" onclick="switchTab('farming')">추천 파밍지</div>
-    <div id="tab-search" class="tab" onclick="switchTab('search')">기질 검색</div>
+    <div id="tab-search" class="tab" onclick="switchTab('search')">기질 검색 (스캐너)</div>
 </div>
 
 <div class="main-wrapper">
     <div id="area-guide" class="content-area active">
-        <div style="text-align: center; margin-bottom: 30px;">
+         <div style="text-align: center; margin-bottom: 30px;">
             <h2 style="color: var(--primary); font-size: 2em; margin-bottom: 10px;">Endfield 기질 스캐너 가이드</h2>
             <p style="color: #aaa;">정확한 인식을 위해 아래 가이드에 맞춰 게임 화면을 공유해 주세요.</p>
         </div>
@@ -83,6 +85,9 @@
                     <span style="background: var(--primary); color: #000; padding: 2px 10px; border-radius: 4px; margin-right: 8px;">1</span>화면 공유 설정
                 </h3>
                 <p style="font-size: 0.95em; line-height: 1.6; color: #ccc; margin-bottom: 20px; min-height: 50px;">
+                    게임의 화면을 <strong>16:9비율</strong> 또는 <strong>21:9비율</strong> 전체화면으로 바꿔주세요<br>
+                    16:9 비율의 환경에서 제작을 했기 때문에 21:9비율 환경에서는 사용에 제한이 있을수 있습니다.<br>
+                    <br>
                     <strong>[기질 검색]</strong> 탭에서 <strong>[화면 공유 시작]</strong> 버튼을 클릭하세요.<br>
                     팝업창의 <strong>'창'</strong> 탭에서 실행 중인 <strong>Endfield</strong> 게임 화면을 선택해야 가장 정확합니다.
                 </p>
@@ -111,14 +116,12 @@
         </div>
 
         <div style="background: rgba(77, 184, 255, 0.1); padding: 18px 25px; border-radius: 10px; border-left: 5px solid var(--primary); margin-bottom: 30px;">
-            <strong style="color: var(--primary); font-size: 1.1em;">💡 신규 기능: 지역별 찾기</strong>
-            <p style="margin: 8px 0 0 0; font-size: 1em; color: #bbb; line-height: 1.5;">
-                <strong>[추천 파밍지]</strong> 탭에서 지역을 선택하고 원하는 옵션을 조합해 보세요. 해당 지역에서 유효한 무기들을 즉시 확인할 수 있습니다!
-            </p>
+            <strong style="color: var(--primary);">💡 21:9 해상도 안내</strong>
+            <p style="margin: 8px 0 0 0; font-size: 0.95em; color: #bbb;">
+                21:9 설정으로 대부분 호환되지만 안될수도 있습니다. 호환이 안될경우 16:9로 바꿔주시면 됩니다.            </p>
         </div>
-
-        <button onclick="switchTab('farming')" style="width: 100%; padding: 22px; font-size: 1.3em; background: var(--primary); color: #000; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(77, 184, 255, 0.3);">
-            분석 시작하기 (파밍지 추천)
+        <button onclick="switchTab('search')" style="width: 100%; padding: 22px; font-size: 1.3em; background: var(--primary); color: #000; border: none; border-radius: 12px; font-weight: bold;">
+            스캐너 바로가기
         </button>
     </div>
 
@@ -127,7 +130,6 @@
             <div id="sub-tab-region" class="sub-tab active" onclick="switchSubTab('farming', 'region')">지역별 파밍지</div>
             <div id="sub-tab-weapon" class="sub-tab" onclick="switchSubTab('farming', 'weapon')">무기별 파밍지</div>
         </div>
-
         <div id="sub-content-region" class="sub-content">
             <div class="area-grid-layout">
                 <div>
@@ -143,7 +145,6 @@
                 </div>
             </div>
         </div>
-
         <div id="sub-content-weapon" class="sub-content" style="display:none;">
             <div class="weapon-farming-layout">
                 <div class="weapon-scroll-area">
@@ -158,10 +159,8 @@
                         <button onclick="resetWeaponSelection()" style="padding:4px 10px; font-size:0.8em; background:#444;">초기화</button>
                     </div>
                     <div class="target-opt-box">
-                        <div style="font-size:0.9em; font-weight:bold; color:#aaa;">📊 통합 목표 옵션</div>
-                        <div id="total-target-opts" class="opt-tag-container">
-                            <span style="color:#666; font-size:0.85em;">무기를 선택해 주세요.</span>
-                        </div>
+                        <div style="font-size:0.9em; font-weight:bold; color:#aaa;">📊 선택 무기</div>
+                        <div id="total-target-opts" class="opt-tag-container"><span style="color:#666;">무기를 선택해 주세요.</span></div>
                     </div>
                     <div id="farming-results-container"></div>
                 </div>
@@ -176,11 +175,12 @@
         </div>
 
         <div class="control-bar">
-            <div id="btn-wrapper" style="position: relative; width: 160px; height: 42px;">
-                <button id="start-btn" style="position: absolute; width:100%; height:100%;" disabled>엔진 로딩 중...</button>
-                <button id="stop-btn" style="position: absolute; width:100%; height:100%; display:none; background:#dc3545;">화면 공유 중지</button>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button id="start-btn" disabled>엔진 로딩 중...</button>
+                <button id="stop-btn" style="display:none;">공유 중지</button>
+                <span id="screen-mode-badge" class="badge" style="background:#555;">대기 중</span>
             </div>
-            <div class="filter-group">
+            <div style="display: flex; gap: 15px; font-size: 0.9em; color: #aaa;">
                 <label style="cursor:pointer;"><input type="checkbox" id="check-5star"> 5성 표시</label>
                 <label style="cursor:pointer;"><input type="checkbox" id="include-2match"> 2개 일치 포함</label>
             </div>
@@ -190,10 +190,20 @@
             <div class="video-panel">
                 <div style="margin-bottom:8px; font-weight:bold; color:var(--primary);">실시간 인식 화면</div>
                 <canvas id="view-canvas"></canvas>
+                
                 <div id="detected-options">
-                    <div class="opt-box"><div id="opt-1" class="opt-name">-</div></div>
-                    <div class="opt-box"><div id="opt-2" class="opt-name">-</div></div>
-                    <div class="opt-box"><div id="opt-3" class="opt-name">-</div></div>
+                    <div class="opt-box">
+                        <div style="font-size:0.8em; color:#aaa;">옵션 1</div>
+                        <div id="opt-1" class="opt-name">-</div>
+                    </div>
+                    <div class="opt-box">
+                        <div style="font-size:0.8em; color:#aaa;">옵션 2</div>
+                        <div id="opt-2" class="opt-name">-</div>
+                    </div>
+                    <div class="opt-box">
+                        <div style="font-size:0.8em; color:#aaa;">옵션 3</div>
+                        <div id="opt-3" class="opt-name">-</div>
+                    </div>
                 </div>
             </div>
             <div class="result-panel">
@@ -211,7 +221,18 @@
 </div>
 
 <script>
-// --- 데이터베이스 ---
+// --- [1] 데이터 및 설정 (16:9 & WIDE 통합) ---
+const CONFIGS = {
+    "DEFAULT": { // 16:9
+        warehouse: { roi: { x: 0.765, y: 0.332, w: 0.132, h: 0.154 }, boxes: [ { x: 0.15, y: -0.01, w: 0.81, h: 0.18 }, { x: 0.15, y: 0.32, w: 0.81, h: 0.18 }, { x: 0.15, y: 0.66, w: 0.81, h: 0.18 } ] },
+        etching: { roi: { x: 0.096, y: 0.5, w: 0.14, h: 0.1 }, boxes: [ { x: 0.02, y: 0.0, w: 0.9, h: 0.25 }, { x: 0.02, y: 0.37, w: 0.9, h: 0.25 }, { x: 0.02, y: 0.72, w: 0.9, h: 0.25 } ] }
+    },
+    "WIDE": { // 21:9 & 21:10 (3840x1645 기준)
+        warehouse: { roi: { x: 0.8246, y: 0.3357, w: 0.0970, h: 0.1561 }, boxes: [ { x: 0.07, y: 0.0, w: 0.9, h: 0.24 }, { x: 0.08, y: 0.33, w: 0.9, h: 0.25 }, { x: 0.07, y: 0.65, w: 0.9, h: 0.24 } ] },
+        etching: { roi: { x: 0.0672, y: 0.4947, w: 0.0958, h: 0.1127 }, boxes: [ { x: 0.07, y: 0.0, w: 0.85, h: 0.28 }, { x: 0.07, y: 0.35, w: 0.85, h: 0.28 }, { x: 0.07, y: 0.64, w: 0.85, h: 0.28 } ] }
+    }
+};
+
 const PLACES = [
     { name: "거점 지역", opts: ["민첩","힘","의지","지능","주요능력치","공격력","열기피해","전기피해","냉기피해","자연피해","아츠강도","궁극기획득효율","아츠피해","강공","억제","추격","분쇄","기예","방출","흐름","효율"] },
     { name: "오리지늄 연구 구역", opts: ["민첩","힘","의지","지능","주요능력치","공격력","물리피해","전기피해","냉기피해","자연피해","치명타확률","궁극기획득효율","아츠피해","억제","추격","사기","기예","고통","의료","골절","효율"] },
@@ -219,39 +240,10 @@ const PLACES = [
     { name: "에너지 공급 고지", opts: ["민첩","힘","의지","지능","주요능력치","공격력","생명력","물리피해","열기피해","자연피해","치명타확률","아츠강도","치유효율","추격","분쇄","사기","잔혹","고통","의료","골절","흐름"] },
     { name: "무릉성", opts: ["민첩","힘","의지","지능","주요능력치","공격력","생명력","전기피해","냉기피해","치명타확률","궁극기획득효율","아츠피해","치유효율","강공","분쇄","잔혹","의료","골절","방출","어둠","흐름"] }
 ];
-
 const PRIMARY_STATS = ["민첩", "힘", "의지", "지능", "주요능력치"];
 const EXTRA_STATS = ["공격력", "생명력", "물리피해", "열기피해", "전기피해", "냉기피해", "자연피해", "치명타확률", "아츠강도", "궁극기획득효율", "아츠피해", "치유효율"];
-
-const WEAPONS_6 = [
-  { name: "과거의 일품", opts: ["의지", "생명력", "효율"] }, { name: "기사도 정신", opts: ["의지", "생명력", "의료"] },
-  { name: "끝없는 방랑", opts: ["의지", "공격력", "흐름"] }, { name: "망각", opts: ["지능", "아츠피해", "어둠"] },
-  { name: "모범", opts: ["주요능력치", "공격력", "억제"] }, { name: "바다와 별의 꿈", opts: ["지능", "치유효율", "고통"] },
-  { name: "백야의 별", opts: ["주요능력치", "아츠강도", "고통"] }, { name: "부요", opts: ["주요능력치", "치명타확률", "어둠"] },
-  { name: "분쇄의 군주", opts: ["힘", "치명타확률", "분쇄"] }, { name: "사명의 길", opts: ["의지", "궁극기획득효율", "추격"] },
-  { name: "산의 지배자", opts: ["민첩", "물리피해", "효율"] }, { name: "쐐기", opts: ["주요능력치", "치명타확률", "고통"] },
-  { name: "암흑의 횃불", opts: ["지능", "열기피해", "고통"] }, { name: "예술의 폭군", opts: ["지능", "치명타확률", "골절"] },
-  { name: "용사", opts: ["민첩", "물리피해", "기예"] }, { name: "용조의 불꽃", opts: ["지능", "공격력", "어둠"] },
-  { name: "위대한 이름", opts: ["주요능력치", "물리피해", "잔혹"] }, { name: "작품: 침식 흔적", opts: ["의지", "자연피해", "억제"] },
-  { name: "장대한 염원", opts: ["민첩", "공격력", "고통"] }, { name: "천둥의 흔적", opts: ["힘", "생명력", "의료"] },
-  { name: "클래니벌", opts: ["주요능력치", "아츠강도", "고통"] }, { name: "테르밋 커터", opts: ["의지", "공격력", "흐름"] },
-  { name: "폭발 유닛", opts: ["주요능력치", "아츠강도", "방출"] }, { name: "항로의 개척자", opts: ["지능", "냉기피해", "고통"] },
-  { name: "헤라펜거", opts: ["힘", "공격력", "방출"] }, { name: "J.E.T.", opts: ["주요능력치", "공격력", "억제"] }
-];
-
-const WEAPONS_5 = [
-  { name: "강철의 여운", opts: ["민첩", "물리피해", "기예"] }, { name: "검은 추적자", opts: ["힘", "궁극기획득효율", "방출"] },
-  { name: "고대의 강줄기", opts: ["힘", "아츠강도", "잔혹"] }, { name: "린수를 찾아서 3.0", opts: ["힘", "냉기피해", "억제"] },
-  { name: "망자의 노래", opts: ["지능", "공격력", "어둠"] }, { name: "무가내하", opts: ["의지", "궁극기획득효율", "사기"] },
-  { name: "불사의 성주", opts: ["지능", "궁극기획득효율", "사기"] }, { name: "선교의 자유", opts: ["의지", "치유효율", "의료"] },
-  { name: "숭배의 시선", opts: ["민첩", "물리피해", "어둠"] }, { name: "십이문", opts: ["민첩", "공격력", "고통"] },
-  { name: "이성적인 작별", opts: ["힘", "열기피해", "추격"] }, { name: "작품: 중생", opts: ["민첩", "아츠강도", "고통"] },
-  { name: "중심력", opts: ["의지", "전기피해", "억제"] }, { name: "최후의 메아리", opts: ["힘", "생명력", "의료"] },
-  { name: "키메라의 정의", opts: ["힘", "궁극기획득효율", "잔혹"] }, { name: "황무지의 방랑자", opts: ["지능", "전기피해", "고통"] },
-  { name: "O.B.J. 벨로시투스", opts: ["민첩", "궁극기획득효율", "방출"] }, { name: "O.B.J. 스파이크", opts: ["의지", "물리피해", "고통"] },
-  { name: "O.B.J. 아츠 아이덴티티", opts: ["지능", "아츠강도", "추격"] }, { name: "O.B.J. 엣지 오브 라이트", opts: ["민첩", "공격력", "흐름"] },
-  { name: "O.B.J. 헤비 버든", opts: ["힘", "생명력", "효율"] }
-];
+const WEAPONS_6 = [ { name: "과거의 일품", opts: ["의지", "생명력", "효율"] }, { name: "기사도 정신", opts: ["의지", "생명력", "의료"] }, { name: "끝없는 방랑", opts: ["의지", "공격력", "흐름"] }, { name: "망각", opts: ["지능", "아츠피해", "어둠"] }, { name: "모범", opts: ["주요능력치", "공격력", "억제"] }, { name: "바다와 별의 꿈", opts: ["지능", "치유효율", "고통"] }, { name: "백야의 별", opts: ["주요능력치", "아츠강도", "고통"] }, { name: "부요", opts: ["주요능력치", "치명타확률", "어둠"] }, { name: "분쇄의 군주", opts: ["힘", "치명타확률", "분쇄"] }, { name: "사명의 길", opts: ["의지", "궁극기획득효율", "추격"] }, { name: "산의 지배자", opts: ["민첩", "물리피해", "효율"] }, { name: "쐐기", opts: ["주요능력치", "치명타확률", "고통"] }, { name: "암흑의 횃불", opts: ["지능", "열기피해", "고통"] }, { name: "예술의 폭군", opts: ["지능", "치명타확률", "골절"] }, { name: "용사", opts: ["민첩", "물리피해", "기예"] }, { name: "용조의 불꽃", opts: ["지능", "공격력", "어둠"] }, { name: "위대한 이름", opts: ["주요능력치", "물리피해", "잔혹"] }, { name: "작품: 침식 흔적", opts: ["의지", "자연피해", "억제"] }, { name: "장대한 염원", opts: ["민첩", "공격력", "고통"] }, { name: "천둥의 흔적", opts: ["힘", "생명력", "의료"] }, { name: "클래니벌", opts: ["주요능력치", "아츠강도", "고통"] }, { name: "테르밋 커터", opts: ["의지", "공격력", "흐름"] }, { name: "폭발 유닛", opts: ["주요능력치", "아츠강도", "방출"] }, { name: "항로의 개척자", opts: ["지능", "냉기피해", "고통"] }, { name: "헤라펜거", opts: ["힘", "공격력", "방출"] }, { name: "J.E.T.", opts: ["주요능력치", "공격력", "억제"] } ];
+const WEAPONS_5 = [ { name: "강철의 여운", opts: ["민첩", "물리피해", "기예"] }, { name: "검은 추적자", opts: ["힘", "궁극기획득효율", "방출"] }, { name: "고대의 강줄기", opts: ["힘", "아츠강도", "잔혹"] }, { name: "린수를 찾아서 3.0", opts: ["힘", "냉기피해", "억제"] }, { name: "망자의 노래", opts: ["지능", "공격력", "어둠"] }, { name: "무가내하", opts: ["의지", "궁극기획득효율", "사기"] }, { name: "불사의 성주", opts: ["지능", "궁극기획득효율", "사기"] }, { name: "선교의 자유", opts: ["의지", "치유효율", "의료"] }, { name: "숭배의 시선", opts: ["민첩", "물리피해", "어둠"] }, { name: "십이문", opts: ["민첩", "공격력", "고통"] }, { name: "이성적인 작별", opts: ["힘", "열기피해", "추격"] }, { name: "작품: 중생", opts: ["민첩", "아츠강도", "고통"] }, { name: "중심력", opts: ["의지", "전기피해", "억제"] }, { name: "최후의 메아리", opts: ["힘", "생명력", "의료"] }, { name: "키메라의 정의", opts: ["힘", "궁극기획득효율", "잔혹"] }, { name: "황무지의 방랑자", opts: ["지능", "전기피해", "고통"] }, { name: "O.B.J. 벨로시투스", opts: ["민첩", "궁극기획득효율", "방출"] }, { name: "O.B.J. 스파이크", opts: ["의지", "물리피해", "고통"] }, { name: "O.B.J. 아츠 아이덴티티", opts: ["지능", "아츠강도", "추격"] }, { name: "O.B.J. 엣지 오브 라이트", opts: ["민첩", "공격력", "흐름"] }, { name: "O.B.J. 헤비 버든", opts: ["힘", "생명력", "효율"] } ];
 
 // --- 전역 변수 ---
 let isRunning = false;
@@ -262,36 +254,27 @@ let regionBases = new Set();
 let regionExtra = null;
 let currentMainTab = 'guide';
 let currentSubTabs = { farming: 'region', search: 'warehouse' };
-let lastRecognizedOptions = ["-", "-", "-"]; // [추가됨] 깜빡임 방지용 데이터
+let lastRecognizedOptions = ["-", "-", "-"];
 
 const video = document.createElement('video');
 const viewCanvas = document.getElementById('view-canvas'), viewCtx = viewCanvas.getContext('2d');
 const hiddenCanvas = document.createElement('canvas'), hiddenCtx = hiddenCanvas.getContext('2d');
 
-const CONFIGS = {
-    warehouse: { roi: { x: 0.765, y: 0.332, w: 0.132, h: 0.154 }, boxes: [ { x: 0.15, y: -0.01, w: 0.81, h: 0.18 }, { x: 0.15, y: 0.32, w: 0.81, h: 0.18 }, { x: 0.15, y: 0.66, w: 0.81, h: 0.18 } ] },
-    etching: { roi: { x: 0.096, y: 0.5, w: 0.14, h: 0.1 }, boxes: [ { x: 0.02, y: 0.0, w: 0.9, h: 0.25 }, { x: 0.02, y: 0.37, w: 0.9, h: 0.25 }, { x: 0.02, y: 0.72, w: 0.9, h: 0.25 } ] }
-};
-
-// --- 시스템 함수 ---
+// --- UI 및 로직 함수 ---
 function switchTab(tabId) {
     currentMainTab = tabId;
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tabId}`));
     document.querySelectorAll('.content-area').forEach(a => a.classList.toggle('active', a.id === `area-${tabId}`));
 }
-
 function switchSubTab(mainId, subId) {
     currentSubTabs[mainId] = subId;
     const parent = document.getElementById(`area-${mainId}`);
     parent.querySelectorAll('.sub-tab').forEach(t => t.classList.toggle('active', t.id === `sub-tab-${subId}`));
-    
     if (mainId === 'farming') {
         document.getElementById('sub-content-region').style.display = subId === 'region' ? 'block' : 'none';
         document.getElementById('sub-content-weapon').style.display = subId === 'weapon' ? 'block' : 'none';
     }
 }
-
-// --- 지역별 파밍 UI ---
 function initRegionUI() {
     const btnBox = document.getElementById('region-btns');
     PLACES.forEach(p => {
@@ -302,7 +285,6 @@ function initRegionUI() {
         btnBox.appendChild(btn);
     });
 }
-
 function selectRegion(place) {
     selectedRegion = place;
     regionBases.clear(); 
@@ -324,16 +306,13 @@ function selectRegion(place) {
             <div id="skill-opt-grid" class="opt-btn-grid"></div>
         </div>
     `;
-
     const baseGrid = document.getElementById('base-opt-grid');
     const extraGrid = document.getElementById('extra-opt-grid');
     const skillGrid = document.getElementById('skill-opt-grid');
-
     place.opts.forEach(opt => {
         const btn = document.createElement('div');
         btn.className = 'opt-select-btn';
         btn.textContent = opt;
-
         if (PRIMARY_STATS.includes(opt)) {
             btn.onclick = () => {
                 if (regionBases.has(opt)) regionBases.delete(opt);
@@ -349,29 +328,23 @@ function selectRegion(place) {
                 if (regionExtra) btn.classList.add('active');
                 updateRegionResults();
             };
-            if (EXTRA_STATS.includes(opt)) extraGrid.appendChild(btn);
-            else skillGrid.appendChild(btn);
+            if (EXTRA_STATS.includes(opt)) extraGrid.appendChild(btn); else skillGrid.appendChild(btn);
         }
     });
     updateRegionResults();
 }
-
 function updateRegionResults() {
     const resDiv = document.getElementById('region-results');
     if(!selectedRegion) return;
-    
     const filter = [...regionBases];
     if(regionExtra) filter.push(regionExtra);
-
     const matches = [...WEAPONS_6, ...WEAPONS_5].filter(w => 
         w.opts.every(o => selectedRegion.opts.includes(o)) && w.opts.some(o => filter.includes(o))
     ).map(w => {
         const is6 = WEAPONS_6.some(s => s.name === w.name);
         return { ...w, matchCount: w.opts.filter(o => filter.includes(o)).length, path: is6 ? '6성 무기' : '5성 무기', color: is6 ? 'var(--gold)' : 'var(--purple)' };
     }).sort((a,b) => b.matchCount - a.matchCount);
-
     if(matches.length === 0) { resDiv.innerHTML = "조건에 맞는 무기가 없습니다."; return; }
-
     resDiv.innerHTML = matches.map(m => `
         <div class="result-region-card ${m.matchCount === 3 ? 'best' : ''}">
             <img src="${m.path}/${m.name.replace(/:/g,"")}.png" onerror="this.src='https://via.placeholder.com/50?text=IMG'" style="width:50px; height:50px; border-radius:4px;">
@@ -385,25 +358,14 @@ function updateRegionResults() {
         </div>
     `).join('');
 }
-
-function resetRegionFilters() {
-    if(selectedRegion) selectRegion(selectedRegion);
-}
-
-// --- 무기별 파밍 UI (로직 수정 버전) ---
+function resetRegionFilters() { if(selectedRegion) selectRegion(selectedRegion); }
 function initFarmingUI() {
     const g6 = document.getElementById('grid-6star'), g5 = document.getElementById('grid-5star');
     const createCard = (w, path) => {
         const div = document.createElement('div');
         div.className = 'weapon-card';
         div.onclick = () => {
-            if(selectedWeapons.has(w)) { 
-                selectedWeapons.delete(w); 
-                div.classList.remove('selected'); 
-            } else { 
-                selectedWeapons.add(w); 
-                div.classList.add('selected'); 
-            }
+            if(selectedWeapons.has(w)) { selectedWeapons.delete(w); div.classList.remove('selected'); } else { selectedWeapons.add(w); div.classList.add('selected'); }
             updateFarmingResults();
         };
         div.innerHTML = `<img src="${path}/${w.name.replace(/:/g,"")}.png" onerror="this.src='https://via.placeholder.com/80?text=No+Img'"><div>${w.name}</div>`;
@@ -412,143 +374,120 @@ function initFarmingUI() {
     WEAPONS_6.forEach(w => g6.appendChild(createCard(w, '6성 무기')));
     WEAPONS_5.forEach(w => g5.appendChild(createCard(w, '5성 무기')));
 }
-
 function updateFarmingResults() {
     const selectedListContainer = document.getElementById('total-target-opts'); 
     const resultContainer = document.getElementById('farming-results-container');
-    
-    // 제목 변경 (HTML 구조상 부모 요소의 텍스트를 바꿉니다)
     const titleLabel = selectedListContainer.previousElementSibling;
     if (titleLabel) titleLabel.innerHTML = '📊 선택 무기';
-
     if (selectedWeapons.size === 0) {
         selectedListContainer.innerHTML = `<span style="color:#666; font-size:0.85em;">무기를 선택하면 상세 정보가 표시됩니다.</span>`;
         resultContainer.innerHTML = `<div style="text-align:center; padding: 40px; color:#666;">선택된 무기가 없습니다.</div>`;
         return;
     }
-
-    // 1. [상단] 선택한 무기 목록 표시
     selectedListContainer.innerHTML = Array.from(selectedWeapons).map(w => `
         <div style="background: rgba(255,255,255,0.05); padding:10px 12px; border-radius:6px; margin-bottom:6px; border-left:3px solid var(--gold);">
             <div style="font-weight:bold; font-size:0.9em; color:var(--gold);">${w.name}</div>
-            <div style="font-size:0.8em; color:#bbb; margin-top:2px;">필요 옵션: ${w.opts.join(', ')}</div>
+            <div style="font-size:0.8em; color:#bbb; margin-top:2px;">필요: ${w.opts.join(', ')}</div>
         </div>
     `).join('');
-
-    // 2. 지역별 데이터 계산
     const results = PLACES.map(p => {
-        const matchedWeapons = Array.from(selectedWeapons).filter(w => 
-            w.opts.every(opt => p.opts.includes(opt))
-        );
-
-        // 옵션별 출현 빈도 계산 (겹치는 옵션 확인용)
+        const matchedWeapons = Array.from(selectedWeapons).filter(w => w.opts.every(opt => p.opts.includes(opt)));
         const optCountMap = {};
-        matchedWeapons.forEach(w => {
-            w.opts.forEach(o => {
-                optCountMap[o] = (optCountMap[o] || 0) + 1;
-            });
-        });
-
-        return { 
-            name: p.name, 
-            matchedCount: matchedWeapons.length,
-            weaponNames: matchedWeapons.map(w => w.name),
-            optDetails: Object.entries(optCountMap).map(([name, count]) => ({
-                name,
-                isDuplicate: count > 1 // 2개 이상의 무기에서 요구하면 겹치는 옵션
-            }))
-        };
+        matchedWeapons.forEach(w => { w.opts.forEach(o => { optCountMap[o] = (optCountMap[o] || 0) + 1; }); });
+        return { name: p.name, matchedCount: matchedWeapons.length, weaponNames: matchedWeapons.map(w => w.name), optDetails: Object.entries(optCountMap).map(([name, count]) => ({ name, isDuplicate: count > 1 })) };
     }).sort((a,b) => b.matchedCount - a.matchedCount);
-
-    // 3. 결과 렌더링
     resultContainer.innerHTML = results.map(r => `
         <div class="result-region-card ${r.matchedCount > 0 ? 'best' : ''}" style="flex-direction: column; align-items: flex-start; gap: 10px; padding: 15px;">
             <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
                 <strong style="font-size:1.1em; color:${r.matchedCount > 0 ? 'var(--primary)' : '#888'}">${r.name}</strong>
-                <span style="background:var(--gold); color:#000; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:bold;">
-                    ${r.matchedCount}개 종결 가능
-                </span>
+                <span style="background:var(--gold); color:#000; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:bold;">${r.matchedCount}개 종결 가능</span>
             </div>
-
             ${r.matchedCount > 0 ? `
                 <div style="width:100%; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border: 1px solid #333;">
                     <div style="font-size:0.75em; color:#aaa; margin-bottom:8px; font-weight:bold;">🎯 추천 파밍 옵션 (초록색: 겹침)</div>
                     <div style="display:flex; flex-wrap:wrap; gap:5px;">
-                        ${r.optDetails.map(opt => `
-                            <span style="font-size:0.8em; padding:2px 8px; border-radius:4px; border:1px solid ${opt.isDuplicate ? '#28a745' : '#555'}; 
-                                         background:${opt.isDuplicate ? 'rgba(40, 167, 69, 0.2)' : '#222'}; 
-                                         color:${opt.isDuplicate ? '#2ecc71' : '#eee'};">
-                                ${opt.name}
-                            </span>
-                        `).join('')}
+                        ${r.optDetails.map(opt => `<span style="font-size:0.8em; padding:2px 8px; border-radius:4px; border:1px solid ${opt.isDuplicate ? '#28a745' : '#555'}; background:${opt.isDuplicate ? 'rgba(40, 167, 69, 0.2)' : '#222'}; color:${opt.isDuplicate ? '#2ecc71' : '#eee'};">${opt.name}</span>`).join('')}
                     </div>
                 </div>
-
-                <div style="width:100%; font-size:0.85em; color:#ccc; line-height:1.4;">
-                    <span style="color:var(--primary); font-weight:bold;">📦 가능 무기:</span> ${r.weaponNames.join(', ')}
-                </div>
-            ` : `
-                <div style="font-size:0.85em; color:#555; text-align:center; width:100%;">이 지역은 파밍 가능한 무기가 없습니다.</div>
-            `}
+                <div style="width:100%; font-size:0.85em; color:#ccc; line-height:1.4;"><span style="color:var(--primary); font-weight:bold;">📦 가능 무기:</span> ${r.weaponNames.join(', ')}</div>
+            ` : `<div style="font-size:0.85em; color:#555; text-align:center; width:100%;">파밍 불가능</div>`}
         </div>
     `).join('');
 }
-function resetWeaponSelection() {
-    document.querySelectorAll('.weapon-card').forEach(c => c.classList.remove('selected'));
-    selectedWeapons.clear();
-    updateFarmingResults();
-}
+function resetWeaponSelection() { document.querySelectorAll('.weapon-card').forEach(c => c.classList.remove('selected')); selectedWeapons.clear(); updateFarmingResults(); }
 
-// --- 스캐너 (OCR) ---
-
-// [교체됨] 고도화된 텍스트 보정 로직
+// --- [2] 최신 Safe-Logic 텍스트 보정 ---
 function normalize(text) {
     let clean = text.replace(/\s+/g, "").replace(/[^\uAC00-\uD7A3]/g, ""); 
     if (!clean) return null;
     clean = clean.replace(/(증가|즘가|승가|즈기|증|가|력)$/, "");
 
-    if (/어[눔둠롬놈돔룸룸니ㄴㅁ]|[어엄움]/.test(clean)) {
-        if (clean.includes("어") || clean === "엄" || clean === "움" || clean === "어눔") return "어둠";
-    }
-    if (/그룹|그룰|그옵|그루|으루|^루$|흐임|^힘$/.test(clean)) return "힘";
-    if (/지.능|시.능|지능|시능/.test(clean)) return "지능";
-    
-    if (/궁.기|획.효|궁극/.test(clean)) return "궁극기획득효율"; 
-    if (/치.효|시.효|치유/.test(clean)) return "치유효율";
-    if (/능.치|주.요/.test(clean)) return "주요능력치";
-    if (/치.타|명.타|확.률/.test(clean)) return "치명타확률";
-    
-    if (/아.츠|아.측/.test(clean)) return clean.includes("피") ? "아츠피해" : "아츠강도";
-    if (/물.리|물.피/.test(clean)) return "물리피해";
-    if (/냉.기/.test(clean)) return "냉기피해";
-    if (/열.기/.test(clean)) return "열기피해";
-    if (/전.기/.test(clean)) return "전기피해";
-    if (/자.연/.test(clean)) return "자연피해";
+    // 긴 단어 우선 매칭 (겹침 방지)
+    if (/궁[극국귱]|획[득듬]/.test(clean)) return "궁극기획득효율";
+    if (/치[명망]|확[률를]/.test(clean)) return "치명타확률";
+    if (/치[유우]/.test(clean)) return "치유효율";
+    if (/주[요오]|능[력럭]치/.test(clean)) return "주요능력치";
 
-    if (clean.includes("민첩")) return "민첩";
-    if (clean.includes("의지")) return "의지";
-    if (clean.includes("공격")) return "공격력";
-    if (clean.includes("생명")) return "생명력";
-    if (clean.includes("흐름")) return "흐름";
+    // 핵심 스탯 오타 보정
+    if (/걱럭|격턱|공[격걱]|격력|공력|^럭$/.test(clean)) return "공격력";
+    if (/생[명멍먕]/.test(clean)) return "생명력";
+    if (/민[첩접쳡]|미[첩접]/.test(clean)) return "민첩";
+    if (/지[능늄]|시능|자능/.test(clean)) return "지능";
+    if (/의[지자]|으지/.test(clean)) return "의지";
+    if (/^힘$|흐임|그[룹룰옵루]|^루$/.test(clean)) return "힘";
+
+    // 속성 및 피해
+    if (/아[츠즈측]/.test(clean)) { return /강|도/.test(clean) ? "아츠강도" : "아츠피해"; }
+    if (/물[리이]/.test(clean)) return "물리피해";
+    if (/냉[기기]/.test(clean)) return "냉기피해";
+    if (/열[기이]/.test(clean)) return "열기피해";
+    if (/전[기이]/.test(clean)) return "전기피해";
+    if (/자[연현]/.test(clean)) return "자연피해";
+
+    // 서브 옵션 오타 보정
+    if (/방[출줄쥴]|밤출/.test(clean)) return "방출";
+    if (/흐[름륾]|으름/.test(clean)) return "흐름";
+    if (/고[통충동]/.test(clean)) return "고통";
+    if (/^어[둠눔롬놈돔룸룸니ㄴㅁ]$|^[어엄움]$/.test(clean)) return "어둠";
     
-    const etc = ["고통","억제","잔혹","방출","추격","기예","골절","분쇄","사기","의료","효율"];
-    for(let k of etc) { if(clean.includes(k)) return k; }
+    // 기타
+    if (/억[제재]/.test(clean)) return "억제";
+    if (/잔[혹흑]/.test(clean)) return "잔혹";
+    if (/추[격굑]/.test(clean)) return "추격";
+    if (/기[예얘]/.test(clean)) return "기예";
+    if (/골[절졀]/.test(clean)) return "골절";
+    if (/분[쇄쉐]/.test(clean)) return "분쇄";
+    if (/사[기귀]/.test(clean)) return "사기";
+    if (/의[료로]/.test(clean)) return "의료";
+    if (/효[율률]/.test(clean)) return "효율";
+
     return clean;
 }
 
-// [교체됨] 깜빡임 방지 로직이 적용된 OCR 루프
+// --- [3] 스캐너 메인 루프 (와이드 감지 + 깜빡임 방지 + RAW) ---
 async function recognizeLoop() {
-    if (!isRunning || currentMainTab === 'guide') return; // currentTab -> currentMainTab 수정
-    const config = CONFIGS[currentSubTabs.search]; // CONFIGS[currentTab] -> currentSubTabs.search 수정
+    if (!isRunning || currentMainTab === 'guide') { requestAnimationFrame(recognizeLoop); return; }
+
     if (video.readyState >= 2) {
         const vw = video.videoWidth, vh = video.videoHeight;
+        
+        // 1. 화면 비율 감지 (16:9 vs WIDE)
+        const ratio = vw / vh;
+        const modeKey = ratio > 1.9 ? "WIDE" : "DEFAULT";
+        const badge = document.getElementById('screen-mode-badge');
+        badge.textContent = modeKey === "WIDE" ? "WIDE 모드" : "표준 모드";
+        badge.style.background = modeKey === "WIDE" ? "#a335ee" : "#28a745";
+
+        const config = CONFIGS[modeKey][currentSubTabs.search];
         const sx = vw * config.roi.x, sy = vh * config.roi.y, sw = vw * config.roi.w, sh = vh * config.roi.h;
         
+        // 시각화 캔버스
         viewCanvas.width = sw; viewCanvas.height = sh;
         viewCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
         
+        // OCR 분석용 캔버스 (전처리)
         hiddenCanvas.width = sw * 2; hiddenCanvas.height = sh * 2;
-        hiddenCtx.filter = 'contrast(170%) grayscale(100%)';
+        hiddenCtx.filter = 'contrast(175%) grayscale(100%) brightness(105%)';
         hiddenCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw * 2, sh * 2);
 
         const currentOptions = [];
@@ -557,14 +496,18 @@ async function recognizeLoop() {
             const res = await worker.recognize(hiddenCanvas, { 
                 rectangle: { left: box.x * hiddenCanvas.width, top: box.y * hiddenCanvas.height, width: box.w * hiddenCanvas.width, height: box.h * hiddenCanvas.height } 
             });
-            const norm = normalize(res.data.text.trim());
-            if (norm) {
-                lastRecognizedOptions[i] = norm; // 새 값이 있을 때만 업데이트
+
+            const rawText = res.data.text.trim();
+            const norm = normalize(rawText);
+            
+            // 깜빡임 방지: 유효한 한글 결과가 있을 때만 갱신
+            if (norm && /[가-힣]{1,}/.test(norm)) {
+                lastRecognizedOptions[i] = norm;
                 document.getElementById(`opt-${i+1}`).textContent = norm;
             }
-            currentOptions.push(lastRecognizedOptions[i]); // 없으면 기존 값 유지
+            currentOptions.push(lastRecognizedOptions[i]);
         }
-        updateScannerMatch(currentOptions); // updateMatches -> updateScannerMatch 수정
+        updateScannerMatch(currentOptions);
     }
     requestAnimationFrame(recognizeLoop);
 }
@@ -577,9 +520,18 @@ function updateScannerMatch(opts) {
     const process = (list, targetId) => {
         const matches = list.map(w => ({ name: w.name, count: w.opts.filter(o => opts.includes(o)).length }))
                             .filter(m => m.count >= minMatch).sort((a,b) => b.count - a.count);
+        
+        if (matches.length === 0) {
+            document.getElementById(targetId).innerHTML = `<div style="color:#666; font-size:0.9em; padding:10px;">매칭된 무기가 없습니다.</div>`;
+            return;
+        }
+
         document.getElementById(targetId).innerHTML = matches.map(m => `
-            <div style="display:flex; justify-content:space-between; padding:5px; border-bottom:1px solid #333; font-size:0.9em;">
-                <span>${m.name}</span><span style="color:var(--gold)">${m.count}개 일치</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #333; font-size:0.95em;">
+                <span style="font-weight:bold; color:#eee;">${m.name}</span>
+                <span style="color:${m.count === 3 ? 'var(--gold)' : '#aaa'}; font-weight:bold; background:rgba(0,0,0,0.3); padding:2px 8px; border-radius:4px;">
+                    ${m.count}개 일치
+                </span>
             </div>
         `).join('');
     };
@@ -611,17 +563,15 @@ document.getElementById('start-btn').onclick = async () => {
         stream.getVideoTracks()[0].onended = stopSharing;
     } catch (e) { alert("취소되었습니다."); }
 };
-
 document.getElementById('stop-btn').onclick = stopSharing;
-
 function stopSharing() {
     isRunning = false;
     if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
     document.getElementById('start-btn').style.display = 'block';
     document.getElementById('stop-btn').style.display = 'none';
-    document.querySelectorAll('.opt-name').forEach(el => el.textContent = '-');
+    document.getElementById('screen-mode-badge').textContent = "대기 중";
+    document.getElementById('screen-mode-badge').style.background = "#555";
 }
-
 init();
 </script>
 </body>

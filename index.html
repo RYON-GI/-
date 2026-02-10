@@ -1,16 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-8RJ6G5RLWV"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-8RJ6G5RLWV');
-</script>
-    
     <meta charset="UTF-8">
     <title>엔드필드 통합 스캐너 (WIDE 대응판)</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -442,12 +432,20 @@ function normalize(text) {
     if (/걱럭|격턱|공[격걱]|격력|공력|^럭$/.test(clean)) return "공격력";
     if (/생[명멍먕]/.test(clean)) return "생명력";
     if (/민[첩접쳡]|미[첩접]/.test(clean)) return "민첩";
-    if (/지[능늄]|시능|자능/.test(clean)) return "지능";
+    // 수정: 글자 수가 짧고 정확히 '지능' 계열일 때만 작동하도록 변경
+    if (/^지[능늄]$|^시능$|^자능$/.test(clean)) return "지능";
     if (/의[지자]|으지/.test(clean)) return "의지";
     if (/^힘$|흐임|그[룹룰옵루]|^루$/.test(clean)) return "힘";
 
     // 속성 및 피해
-    if (/아[츠즈측]/.test(clean)) { return /강|도/.test(clean) ? "아츠강도" : "아츠피해"; }
+    if (/아[츠즈측]/.test(clean)) {
+    // 1순위: 오리지늄이나 증가가 보이면 무조건 강도
+        if (clean.includes("오리지늄") || /증|가/.test(clean)) {
+            return "아츠강도";
+        }
+    // 2순위: 그 외 아츠가 포함된 모든 경우는 피해로 간주
+        return "아츠피해";
+    }
     if (/물[리이]/.test(clean)) return "물리피해";
     if (/냉[기기]/.test(clean)) return "냉기피해";
     if (/열[기이]/.test(clean)) return "열기피해";
@@ -585,5 +583,4 @@ function stopSharing() {
 init();
 </script>
 </body>
-
 </html>

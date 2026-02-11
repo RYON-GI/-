@@ -298,6 +298,8 @@ let regionExtra = null;
 let currentMainTab = 'guide';
 let currentSubTabs = { farming: 'region', search: 'warehouse' };
 let lastRecognizedOptions = ["-", "-", "-"];
+// 이전 인식 결과를 저장해서 중복 갱신을 방지합니다.
+let lastProcessedOptions = ""; 
 
 const video = document.createElement('video');
 const viewCanvas = document.getElementById('view-canvas'), viewCtx = viewCanvas.getContext('2d');
@@ -319,6 +321,25 @@ function switchSubTab(mainId, subId) {
     }
 }
 
+// [NEW] 통합 보유 상태 관리 함수 (어디서 클릭하든 모든 탭 동기화)
+function toggleWeaponStatus(name) {
+    if (ownedWeapons.has(name)) {
+        ownedWeapons.delete(name);
+    } else {
+        ownedWeapons.add(name);
+    }
+    localStorage.setItem('endfield_owned_weapons', JSON.stringify(Array.from(ownedWeapons)));
+
+    // 모든 탭의 해당 무기 카드 시각적 갱신
+    const isOwned = ownedWeapons.has(name);
+    document.querySelectorAll(`.weapon-card[data-name="${name}"]`).forEach(card => {
+        if (isOwned) card.classList.add('owned');
+        else card.classList.remove('owned');
+    });
+
+    updateFarmingResults(); // 파밍지 탭 계산 갱신
+}
+
 // --- NEW: 보유 현황 관리 로직 ---
 function initCollectionUI() {
     // 저장된 데이터 불러오기
@@ -333,21 +354,11 @@ function initCollectionUI() {
     const createCollectionCard = (w, path) => {
         const div = document.createElement('div');
         div.className = 'weapon-card';
+        div.dataset.name = w.name; // [중요] 외부 식별용 태그
         if (ownedWeapons.has(w.name)) div.classList.add('owned');
         
-        div.onclick = () => {
-            if (ownedWeapons.has(w.name)) {
-                ownedWeapons.delete(w.name);
-                div.classList.remove('owned');
-            } else {
-                ownedWeapons.add(w.name);
-                div.classList.add('owned');
-            }
-            localStorage.setItem('endfield_owned_weapons', JSON.stringify(Array.from(ownedWeapons)));
-            
-            // 다른 탭들의 UI도 갱신
-            updateFarmingResults(); // 파밍지 탭의 무기 리스트 갱신 (색상 반영)
-        };
+        // [수정] 통합 함수 호출
+        div.onclick = () => toggleWeaponStatus(w.name);
         
         div.innerHTML = `
             <img src="${path}/${w.name.replace(/:/g,"")}.png" onerror="this.src='https://via.placeholder.com/80?text=No+Img'">
@@ -543,7 +554,8 @@ function normalize(text) {
     if (/민[첩접쳡]|미[첩접]/.test(clean)) return "민첩";
     if (/^지[능늄]$|^시능$|^자능$/.test(clean)) return "지능";
     if (/의[지자]|으지/.test(clean)) return "의지";
-    if (/^힘$|흐임|그[룹룰옵루]|^루$/.test(clean)) return "힘";
+    // [보정] "힘" 관련 오타 (으루, 우루, 흐임 등)
+    if (/^힘$|흐임|그[룹룰옵루]|^[으우]루$|^루$/.test(clean)) return "힘";
 
     // 오리지늄 키워드 우선 처리
     if (clean.includes("오리지늄")) {
@@ -588,14 +600,16 @@ function normalize(text) {
     return clean;
 }
 
-// --- [3] 스캐너 메인 루프 (와이드 감지 + 깜빡임 방지 + RAW) ---
 async function recognizeLoop() {
-    if (!isRunning || currentMainTab === 'guide') { requestAnimationFrame(recognizeLoop); return; }
+    if (!isRunning || currentMainTab === 'guide') { 
+        requestAnimationFrame(recognizeLoop); 
+        return; 
+    }
 
     if (video.readyState >= 2) {
         const vw = video.videoWidth, vh = video.videoHeight;
         
-        // 1. 화면 비율 감지 (16:9 vs WIDE)
+        // 1. 화면 비율 감지 및 배지 업데이트
         const ratio = vw / vh;
         const modeKey = ratio > 1.9 ? "WIDE" : "DEFAULT";
         const badge = document.getElementById('screen-mode-badge');
@@ -605,38 +619,50 @@ async function recognizeLoop() {
         const config = CONFIGS[modeKey][currentSubTabs.search];
         const sx = vw * config.roi.x, sy = vh * config.roi.y, sw = vw * config.roi.w, sh = vh * config.roi.h;
         
-        // 시각화 캔버스
+        // 시각화 캔버스 업데이트
         viewCanvas.width = sw; viewCanvas.height = sh;
         viewCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
         
-        // OCR 분석용 캔버스 (전처리)
+        // OCR용 숨겨진 캔버스 (전처리)
         hiddenCanvas.width = sw * 2; hiddenCanvas.height = sh * 2;
         hiddenCtx.filter = 'contrast(175%) grayscale(100%) brightness(105%)';
         hiddenCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw * 2, sh * 2);
 
         const currentOptions = [];
+        // 3개의 옵션 영역을 루프하며 인식
         for (let i = 0; i < 3; i++) {
             const box = config.boxes[i];
             const res = await worker.recognize(hiddenCanvas, { 
-                rectangle: { left: box.x * hiddenCanvas.width, top: box.y * hiddenCanvas.height, width: box.w * hiddenCanvas.width, height: box.h * hiddenCanvas.height } 
+                rectangle: { 
+                    left: box.x * hiddenCanvas.width, 
+                    top: box.y * hiddenCanvas.height, 
+                    width: box.w * hiddenCanvas.width, 
+                    height: box.h * hiddenCanvas.height 
+                } 
             });
 
             const rawText = res.data.text.trim();
             const norm = normalize(rawText);
             
-            // 깜빡임 방지: 유효한 한글 결과가 있을 때만 갱신
+            // 유효한 인식 결과가 있을 때만 해당 칸의 텍스트 갱신 (깜빡임 방지)
             if (norm && /[가-힣]{1,}/.test(norm)) {
                 lastRecognizedOptions[i] = norm;
                 document.getElementById(`opt-${i+1}`).textContent = norm;
             }
             currentOptions.push(lastRecognizedOptions[i]);
         }
-        updateScannerMatch(currentOptions);
+
+        // [중요] 이전 인식 결과와 다를 때만 무기 매칭 목록을 새로 그립니다.
+        const currentOptionsStr = currentOptions.join(',');
+        if (lastProcessedOptions !== currentOptionsStr) {
+            updateScannerMatch(currentOptions);
+            lastProcessedOptions = currentOptionsStr;
+        }
     }
     requestAnimationFrame(recognizeLoop);
 }
 
-// NEW: 스캐너 결과 업데이트 (이미지 카드형 + 보유 시각화)
+// NEW: 스캐너 결과 업데이트 (이미지 카드형 + 보유 시각화 + 클릭 이벤트)
 function updateScannerMatch(opts) {
     const show5 = document.getElementById('check-5star').checked;
     const minMatch = document.getElementById('include-2match').checked ? 2 : 3;
@@ -657,9 +683,12 @@ function updateScannerMatch(opts) {
             return;
         }
 
-        // 이미지 카드 형태로 렌더링
+        // [수정] onclick 이벤트 및 data-name 추가
         targetDiv.innerHTML = matches.map(m => `
-            <div class="weapon-card ${m.isOwned ? 'owned' : ''}" style="padding:5px;">
+            <div class="weapon-card ${m.isOwned ? 'owned' : ''}" 
+                 data-name="${m.name}"
+                 onclick="toggleWeaponStatus('${m.name}')"
+                 style="padding:5px;">
                 <img src="${imgPath}/${m.name.replace(/:/g,"")}.png" onerror="this.src='https://via.placeholder.com/80?text=IMG'">
                 <div style="font-weight:bold; font-size:0.85em; color:${m.isOwned ? 'var(--green)' : '#eee'}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
                     ${m.name}
@@ -712,4 +741,3 @@ init();
 </script>
 </body>
 </html>
-

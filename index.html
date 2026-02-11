@@ -573,7 +573,7 @@ ${m.isOwned ? `<div class="owned-overlay"></div>` : ''}
                     <div style="display:flex; justify-content:space-between;">
                         <span style="font-weight:bold; color:${m.color};">${m.name}</span>
                         <span class="badge ${m.isOwned ? 'badge-complete' : ''}">
-    ${m.isOwned ? '종결' : `${m.count}개 일치`}
+    ${m.isOwned ? '종결' : `${(m.matchCount ?? m.count)}개 일치`}
 </span>
 
                     </div>
@@ -858,7 +858,10 @@ function updateScannerMatch(opts) {
             font-weight: bold;
         ` : ''}
      ">
-    ${m.isOwned ? '종결' : `${m.count}개 일치`}
+    <div class="match-badge"
+     style="${m.isOwned ? 'background: var(--green); color: #fff; font-weight: bold;' : ''}">
+    ${m.isOwned ? '종결' : `${(m.matchCount ?? m.count)}개 일치`}
+</div>
 </div>
 
             </div>`;

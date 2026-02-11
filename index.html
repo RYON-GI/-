@@ -96,13 +96,17 @@
         .weapon-card.selected img { filter: brightness(1); }
         
         /* 보유중 상태 (NEW: 초록색 강조) */
-        .weapon-card.owned { border-color: var(--green); background: rgba(40, 167, 69, 0.15); }
+        .weapon-card.owned { border-color: #2f6f44; background: rgba(40, 167, 69, 0.15); }
         .weapon-card.owned img { filter: brightness(1); }
         .weapon-card.owned::after {
             content: "✔"; position: absolute; top: 5px; right: 5px; 
             background: var(--green); color: white; font-size: 0.8em; 
-            padding: 2px 6px; border-radius: 4px; font-weight: bold;
+            padding: 2px 6px; border-radius: 4px; font-weight: bold; z-index: 10;
         }
+
+.weapon-card.owned .weapon-name {
+    opacity: 0.85;
+}
 
         .report-panel { background: rgba(0,0,0,0.2); border-radius: 10px; padding: 20px; border: 1px solid #333; }
         .target-opt-box { background: #2a2a2a; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
@@ -120,6 +124,23 @@
         
         .section-box { background: rgba(255,255,255,0.03); border: 1px solid #333; border-radius: 10px; padding: 15px; min-height: 200px; margin-bottom: 10px; }
         .badge { padding: 4px 10px; border-radius: 4px; font-size: 0.8em; background: #444; color: #fff; margin-left: 10px; }
+
+.badge-complete {
+    background: #1db954 !important;
+    color: #fff !important;
+    font-weight: bold;
+    position: relative;
+    z-index: 2;
+}
+.owned-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.12);
+    border-radius: 6px; 
+    pointer-events: none;
+    z-index: 1;
+}
+
 
         button { padding: 10px 20px; cursor: pointer; font-weight: bold; background: #007bff; color: white; border: none; border-radius: 8px; }
         #stop-btn { background: var(--red); }
@@ -442,7 +463,20 @@ function selectRegion(place) {
     regionExtra = null; 
     document.querySelectorAll('.region-btn').forEach(b => b.classList.toggle('active', b.textContent === place.name));
     
+    const btnBox = document.getElementById('region-btns');
     const optionArea = document.getElementById('region-option-area');
+// 기존 요약 제거
+const oldSummary = document.getElementById('region-summary-box');
+if (oldSummary) oldSummary.remove();
+
+// 새 요약 추가
+const summaryHTML = renderRegionSummary(place);
+const wrapper = document.createElement('div');
+wrapper.id = 'region-summary-box';
+wrapper.innerHTML = summaryHTML;
+
+btnBox.after(wrapper);
+
     optionArea.style.display = 'block';
     optionArea.innerHTML = `
         <div class="option-filter-group">
@@ -501,7 +535,17 @@ function updateRegionResults() {
             color: is6 ? 'var(--gold)' : 'var(--purple)',
             isOwned: ownedWeapons.has(w.name)
         };
-    }).sort((a,b) => b.matchCount - a.matchCount);
+    }).sort((a,b) => {
+
+    // 1순위: 종결 여부 (미종결 먼저)
+    if (a.isOwned !== b.isOwned) {
+        return a.isOwned ? 1 : -1;
+    }
+
+    // 2순위: 매칭 개수
+    return b.matchCount - a.matchCount;
+});
+
     
     if(matches.length === 0) { resDiv.innerHTML = "조건에 맞는 무기가 없습니다."; return; }
     
@@ -511,8 +555,16 @@ function updateRegionResults() {
         const starPrefix = m.path.includes('6성') ? '6성' : '5성';
 
         return `
-            <div class="result-region-card ${m.matchCount === 3 ? 'best' : ''}" style="${m.isOwned ? 'border:1px solid var(--green); background:rgba(40,167,69,0.1);' : ''}">
-                <div class="weapon-img-container" style="width:60px; height:60px; flex-shrink:0;">
+            <div class="result-region-card ${m.matchCount === 3 ? 'best' : ''}" 
+     style="
+    position:relative;
+    ${m.isOwned ? `
+` : ''}
+
+">
+${m.isOwned ? `<div class="owned-overlay"></div>` : ''}
+
+                 <div class="weapon-img-container" style="width:60px; height:60px; flex-shrink:0;">
                     <img src="배경.png" class="layer bg-layer">
                     <img src="${m.path}/${m.name.replace(/:/g,"")}.png" class="layer weapon-layer">
                     <img src="${m.path}/${starPrefix} 하단.png" class="layer bottom-layer">
@@ -520,7 +572,10 @@ function updateRegionResults() {
                 <div style="flex-grow:1; margin-left:12px;">
                     <div style="display:flex; justify-content:space-between;">
                         <span style="font-weight:bold; color:${m.color};">${m.name}</span>
-                        <span class="badge">${m.matchCount}개 일치</span>
+                        <span class="badge ${m.isOwned ? 'badge-complete' : ''}">
+    ${m.isOwned ? '종결' : `${m.count}개 일치`}
+</span>
+
                     </div>
                     <div style="font-size:0.85em; color:#aaa; margin-top:4px;">
                         ${m.opts.map(o => `<span style="${filter.includes(o) ? 'color:var(--primary); font-weight:bold;' : ''}">${o}</span>`).join(', ')}
@@ -610,67 +665,84 @@ function updateFarmingResults() {
 }
 function resetWeaponSelection() { document.querySelectorAll('.weapon-card').forEach(c => c.classList.remove('selected')); selectedWeapons.clear(); updateFarmingResults(); }
 
-// --- [2] 최신 Safe-Logic 텍스트 보정 ---
 function normalize(text) {
-    let clean = text.replace(/\s+/g, "").replace(/[^\uAC00-\uD7A3]/g, ""); 
+
+    // ===== 1️⃣ 전처리 =====
+    let clean = text
+        .replace(/\s+/g, "")
+        .replace(/[^\uAC00-\uD7A3]/g, "");
+
     if (!clean) return null;
-    clean = clean.replace(/(증가|즘가|승가|즈기|증|가|력)$/, "");
 
-    // 긴 단어 우선 매칭 (겹침 방지)
-    if (/궁[극국귱]|획[득듬]/.test(clean)) return "궁극기획득효율";
-    if (/치[명망]|확[률를]/.test(clean)) return "치명타확률";
-    if (/치[유우]/.test(clean)) return "치유효율";
-    if (/주[요오]|능[력럭]치/.test(clean)) return "주요능력치";
+    // 증가 오타만 제거 (단일 글자 제거는 하지 않음)
+    clean = clean.replace(/(증가|즘가|승가|즈기)$/, "");
 
-    // 핵심 스탯 오타 보정
-    if (/걱럭|격턱|공[격걱]|격력|공력|^럭$/.test(clean)) return "공격력";
-    if (/생[명멍먕]/.test(clean)) return "생명력";
-    if (/민[첩접쳡]|미[첩접]/.test(clean)) return "민첩";
-    if (/^지[능늄]$|^시능$|^자능$/.test(clean)) return "지능";
-    if (/의[지자]|으지/.test(clean)) return "의지";
-    // [보정] "힘" 관련 오타 (으루, 우루, 흐임 등)
-    if (/^힘$|흐임|그[룹룰옵루]|^[으우]루$|^루$/.test(clean)) return "힘";
+    // ===== 2️⃣ 아츠 (복합 로직 블록) =====
+    const hasArts = /아[츠즈측특트]/.test(clean);
+    const hasOriginium = /오리?지?늄/.test(clean);
+    const hasIncrease = /(증|중|즌|즁|강[도토두로]?)/.test(clean);
+    const hasDamage = /피[해헤패하]/.test(clean);
 
-    // 오리지늄 키워드 우선 처리
-    if (clean.includes("오리지늄")) {
+    if (hasArts) {
+
+        if (hasOriginium) return "아츠강도";
+        if (hasIncrease) return "아츠강도";
+        if (hasDamage) return "아츠피해";
+
+        // fallback
         return "아츠강도";
     }
 
-    // 아츠 및 속성 피해
-    if (/아[츠즈측]/.test(clean)) {
-        if (clean.includes("피해")) {
-            return "아츠피해";
-        }
-        if (clean.includes("증가") || clean.includes("증") || clean.includes("가")) {
-            return "아츠강도";
-        }
-        return "아츠피해";
-    }
-    if (/물[리이]|는그리|그리톨/.test(clean)) {
-        return "물리피해";
-    }
-    if (/냉[기기]/.test(clean)) return "냉기피해";
-    if (/열[기이]/.test(clean)) return "열기피해";
-    if (/전[기이]/.test(clean)) return "전기피해";
-    if (/자[연현]/.test(clean)) return "자연피해";
+    // ===== 3️⃣ 룰 기반 매핑 =====
+    const rules = [
 
-    // 서브 옵션 오타 보정
-    if (/방[출줄쥴]|밤출/.test(clean)) return "방출";
-    if (/흐[름륾]|으름/.test(clean)) return "흐름";
-    if (/고[통충동]/.test(clean)) return "고통";
-    if (/^어[둠눔롬놈돔룸룸니ㄴㅁ]$|^[어엄움]$/.test(clean)) return "어둠";
-    
-    // 기타
-    if (/억[제재]/.test(clean)) return "억제";
-    if (/잔[혹흑]/.test(clean)) return "잔혹";
-    if (/추[격굑]/.test(clean)) return "추격";
-    if (/기[예얘]/.test(clean)) return "기예";
-    if (/골[절졀]/.test(clean)) return "골절";
-    if (/분[쇄쉐]/.test(clean)) return "분쇄";
-    if (/사[기귀]/.test(clean)) return "사기";
-    if (/의[료로]/.test(clean)) return "의료";
-    if (/효[율률]/.test(clean)) return "효율";
+        // --- 긴 단어 우선 ---
+        { regex: /궁[극국귱]|획[득듬]/, value: "궁극기획득효율" },
+        { regex: /치[명망]|확[률를]/, value: "치명타확률" },
+        { regex: /치[유우]/, value: "치유효율" },
+        { regex: /주[요오].*능/, value: "주요능력치" },
 
+        // --- 핵심 스탯 ---
+        { regex: /걱럭|격턱|공[격걱]|격력|공력|^럭$/, value: "공격력" },
+        { regex: /생[명멍먕]/, value: "생명력" },
+        { regex: /민[첩접쳡]|미[첩접]/, value: "민첩" },
+        { regex: /^지[능늄]$|^시능$|^자능$/, value: "지능" },
+        { regex: /의[지자]|으지/, value: "의지" },
+        { regex: /^힘$|흐임|그[룹룰옵루]|^[으우]루$|^루$/, value: "힘" },
+
+        // --- 속성 피해 ---
+        { regex: /물[리이]|는그리|그리톨/, value: "물리피해" },
+        { regex: /냉[기기]/, value: "냉기피해" },
+        { regex: /열[기이]/, value: "열기피해" },
+        { regex: /전[기이]/, value: "전기피해" },
+        { regex: /자[연현]/, value: "자연피해" },
+
+        // --- 서브 옵션 ---
+        { regex: /방[출줄쥴]|밤출/, value: "방출" },
+        { regex: /흐[름륾]|으름/, value: "흐름" },
+        { regex: /고[통충동]/, value: "고통" },
+        { regex: /^어[둠눔롬놈돔룸니ㄴㅁ]$|^[어엄움]$/, value: "어둠" },
+
+        // --- 기타 ---
+        { regex: /억[제재]/, value: "억제" },
+        { regex: /잔[혹흑]/, value: "잔혹" },
+        { regex: /추[격굑]/, value: "추격" },
+        { regex: /기[예얘]/, value: "기예" },
+        { regex: /골[절졀]/, value: "골절" },
+        { regex: /분[쇄쉐]/, value: "분쇄" },
+        { regex: /사[기귀]/, value: "사기" },
+        { regex: /의[료로]/, value: "의료" },
+        { regex: /[효요][율률]/, value: "효율" }
+
+    ];
+
+    for (const rule of rules) {
+        if (rule.regex.test(clean)) {
+            return rule.value;
+        }
+    }
+
+    // ===== 4️⃣ 최종 fallback =====
     return clean;
 }
 
@@ -778,7 +850,17 @@ function updateScannerMatch(opts) {
                     <img src="${imgPath}/${starPrefix} 하단.png" class="layer bottom-layer">
                 </div>
                 <div style="font-weight:bold; font-size:0.85em;">${m.name}</div>
-                <div class="match-badge">${m.count}개 일치</div>
+                <div class="match-badge"
+     style="
+        ${m.isOwned ? `
+            background: var(--green);
+            color: #fff;
+            font-weight: bold;
+        ` : ''}
+     ">
+    ${m.isOwned ? '종결' : `${m.count}개 일치`}
+</div>
+
             </div>`;
         }).join('');
     };
@@ -823,6 +905,65 @@ function stopSharing() {
     document.getElementById('screen-mode-badge').textContent = "대기 중";
     document.getElementById('screen-mode-badge').style.background = "#555";
 }
+function renderRegionSummary(place) {
+
+    const regionWeapons = [...WEAPONS_6, ...WEAPONS_5].filter(w =>
+        w.opts.every(o => place.opts.includes(o))
+    );
+
+    const unfinished = regionWeapons.filter(w => !ownedWeapons.has(w.name));
+
+    const countMap = {};
+
+    unfinished.forEach(w => {
+        w.opts.forEach(opt => {
+            if (!countMap[opt]) countMap[opt] = 0;
+            countMap[opt]++;
+        });
+    });
+
+    const baseRecs = Object.entries(countMap)
+        .filter(([opt]) => PRIMARY_STATS.includes(opt))
+        .sort((a,b) => b[1] - a[1])
+        .slice(0,3)
+        .map(v => v[0]);
+
+    const extraRec = Object.entries(countMap)
+        .filter(([opt]) => !PRIMARY_STATS.includes(opt))
+        .sort((a,b) => b[1] - a[1])[0];
+
+    return `
+        <div style="
+            margin-top:12px;
+            padding:12px;
+            background:rgba(255,255,255,0.05);
+            border-radius:8px;
+            border:1px solid #333;
+        ">
+            <div style="font-weight:bold; color:var(--primary);">
+                📊 ${place.name} 요약
+            </div>
+            <div style="margin-top:6px;">
+                미종결 
+                <span style="color:var(--red); font-weight:bold;">
+                    ${unfinished.length}
+                </span>개
+            </div>
+            <div style="margin-top:6px; font-size:0.9em;">
+                추천 속성 
+                (기본 
+                <span style="color:var(--gold);">
+                    ${baseRecs.join(", ") || "-"}
+                </span>
+                / 심화 
+                <span style="color:var(--purple);">
+                    ${extraRec ? extraRec[0] : "-"}
+                </span>)
+            </div>
+        </div>
+    `;
+}
+
 init();
 </script>
 </body>

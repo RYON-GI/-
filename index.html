@@ -42,7 +42,53 @@
             cursor: pointer; border: 1px solid #333; border-radius: 6px; background: #252525; 
             transition: 0.2s; padding: 8px; text-align: center; position: relative;
         }
-        .weapon-card img { width: 100%; height: auto; border-radius: 4px; filter: brightness(0.7); transition: 0.2s; }
+        /* 무기 카드 이미지 컨테이너 (레이어 겹치기) */
+        .weapon-img-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1; /* 240x240 비율 대응 (1:1) */
+            overflow: hidden;
+            border-radius: 4px;
+            background: #000;
+        }
+
+        /* 모든 레이어 공통 설정 */
+        .layer {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            display: block;
+            pointer-events: none; /* 클릭 이벤트 방해 방지 */
+        }
+
+        /* 1층: 배경 (240x240 전체) */
+        .bg-layer {
+            top: 0;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* 2층: 무기 (240x240 전체, 이미지 비율 유지) */
+        .weapon-layer {
+            top: 0;
+            height: 100%;
+            z-index: 2;
+            object-fit: contain; 
+            transition: 0.2s;
+        }
+
+        /* 3층: 하단 (240x80 비율 = 높이 33.33%) */
+        .bottom-layer {
+            bottom: 0;
+            height: 33.33%;
+            z-index: 3;
+        }
+
+        /* 보유 및 선택 시 효과 */
+        .weapon-card.selected .weapon-layer,
+        .weapon-card.owned .weapon-layer {
+            filter: brightness(1.2);
+        }
         .weapon-card div { margin-top: 5px; font-size: 0.9em; color: #ccc; }
         
         /* 선택된 상태 (파밍지 탭) */
@@ -340,9 +386,9 @@ function toggleWeaponStatus(name) {
     updateFarmingResults(); // 파밍지 탭 계산 갱신
 }
 
-// --- NEW: 보유 현황 관리 로직 ---
+// --- 보유 현황 관리 로직 수정 ---
 function initCollectionUI() {
-    // 저장된 데이터 불러오기
+    // 1. 저장된 데이터 불러오기
     const saved = localStorage.getItem('endfield_owned_weapons');
     if (saved) {
         ownedWeapons = new Set(JSON.parse(saved));
@@ -350,25 +396,34 @@ function initCollectionUI() {
 
     const g6 = document.getElementById('collection-6star');
     const g5 = document.getElementById('collection-5star');
+    
+    g6.innerHTML = '';
+    g5.innerHTML = '';
 
-    const createCollectionCard = (w, path) => {
+    // 2. 카드 생성 함수 (파일명 수정됨)
+    const createCollectionCard = (w, path, starPrefix) => {
         const div = document.createElement('div');
         div.className = 'weapon-card';
-        div.dataset.name = w.name; // [중요] 외부 식별용 태그
+        div.dataset.name = w.name;
         if (ownedWeapons.has(w.name)) div.classList.add('owned');
         
-        // [수정] 통합 함수 호출
         div.onclick = () => toggleWeaponStatus(w.name);
         
+        // [수정 핵심] 하단 이미지 파일명을 ${starPrefix} 하단.png 로 변경
         div.innerHTML = `
-            <img src="${path}/${w.name.replace(/:/g,"")}.png" onerror="this.src='https://via.placeholder.com/80?text=No+Img'">
+            <div class="weapon-img-container">
+                <img src="배경.png" class="layer bg-layer">
+                <img src="${path}/${w.name.replace(/:/g,"")}.png" class="layer weapon-layer" onerror="this.src='https://via.placeholder.com/240?text=No+Img'">
+                <img src="${path}/${starPrefix} 하단.png" class="layer bottom-layer" onerror="this.src='https://via.placeholder.com/240x80?text=No+Bottom'">
+            </div>
             <div>${w.name}</div>
         `;
         return div;
     };
 
-    WEAPONS_6.forEach(w => g6.appendChild(createCollectionCard(w, '6성 무기')));
-    WEAPONS_5.forEach(w => g5.appendChild(createCollectionCard(w, '5성 무기')));
+    // 3. 각각 6성과 5성 접두사를 넘겨주며 생성
+    WEAPONS_6.forEach(w => g6.appendChild(createCollectionCard(w, '6성 무기', '6성')));
+    WEAPONS_5.forEach(w => g5.appendChild(createCollectionCard(w, '5성 무기', '5성')));
 }
 
 function initRegionUI() {
@@ -434,6 +489,7 @@ function updateRegionResults() {
     if(!selectedRegion) return;
     const filter = [...regionBases];
     if(regionExtra) filter.push(regionExtra);
+
     const matches = [...WEAPONS_6, ...WEAPONS_5].filter(w => 
         w.opts.every(o => selectedRegion.opts.includes(o)) && w.opts.some(o => filter.includes(o))
     ).map(w => {
@@ -443,47 +499,65 @@ function updateRegionResults() {
             matchCount: w.opts.filter(o => filter.includes(o)).length, 
             path: is6 ? '6성 무기' : '5성 무기', 
             color: is6 ? 'var(--gold)' : 'var(--purple)',
-            isOwned: ownedWeapons.has(w.name) // 보유 여부
+            isOwned: ownedWeapons.has(w.name)
         };
     }).sort((a,b) => b.matchCount - a.matchCount);
     
     if(matches.length === 0) { resDiv.innerHTML = "조건에 맞는 무기가 없습니다."; return; }
     
-    // 보유 여부 시각화 반영
-    resDiv.innerHTML = matches.map(m => `
-        <div class="result-region-card ${m.matchCount === 3 ? 'best' : ''}" style="${m.isOwned ? 'border:1px solid var(--green); background:rgba(40,167,69,0.1);' : ''}">
-            <img src="${m.path}/${m.name.replace(/:/g,"")}.png" onerror="this.src='https://via.placeholder.com/50?text=IMG'" style="width:50px; height:50px; border-radius:4px;">
-            <div style="flex-grow:1;">
-                <div style="display:flex; justify-content:space-between;">
-                    <strong style="color:${m.color}">${m.name} ${m.isOwned ? '<span style="color:var(--green); font-size:0.8em;">(✔보유)</span>' : ''}</strong>
-                    <span style="color:var(--gold); font-weight:bold;">${m.matchCount}/3</span>
+    // --- 이 부분이 수정된 핵심 영역입니다 ---
+    resDiv.innerHTML = matches.map(m => {
+        // map 함수 내부에서 각 무기별로 6성인지 5성인지 접두사를 결정합니다.
+        const starPrefix = m.path.includes('6성') ? '6성' : '5성';
+
+        return `
+            <div class="result-region-card ${m.matchCount === 3 ? 'best' : ''}" style="${m.isOwned ? 'border:1px solid var(--green); background:rgba(40,167,69,0.1);' : ''}">
+                <div class="weapon-img-container" style="width:60px; height:60px; flex-shrink:0;">
+                    <img src="배경.png" class="layer bg-layer">
+                    <img src="${m.path}/${m.name.replace(/:/g,"")}.png" class="layer weapon-layer">
+                    <img src="${m.path}/${starPrefix} 하단.png" class="layer bottom-layer">
                 </div>
-                <div style="font-size:0.8em; color:#888;">${m.opts.join(', ')}</div>
+                <div style="flex-grow:1; margin-left:12px;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="font-weight:bold; color:${m.color};">${m.name}</span>
+                        <span class="badge">${m.matchCount}개 일치</span>
+                    </div>
+                    <div style="font-size:0.85em; color:#aaa; margin-top:4px;">
+                        ${m.opts.map(o => `<span style="${filter.includes(o) ? 'color:var(--primary); font-weight:bold;' : ''}">${o}</span>`).join(', ')}
+                    </div>
+                </div>
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 function resetRegionFilters() { if(selectedRegion) selectRegion(selectedRegion); }
 
 function initFarmingUI() {
     const g6 = document.getElementById('grid-6star'), g5 = document.getElementById('grid-5star');
-    const createCard = (w, path) => {
-        const div = document.createElement('div');
-        div.className = 'weapon-card';
-        div.dataset.name = w.name; // 이름 태그 추가
-        // 초기 로딩 시 보유 상태 확인
-        if (ownedWeapons.has(w.name)) div.classList.add('owned');
-
-        div.onclick = () => {
-            if(selectedWeapons.has(w)) { selectedWeapons.delete(w); div.classList.remove('selected'); } else { selectedWeapons.add(w); div.classList.add('selected'); }
-            updateFarmingResults();
-        };
-        div.innerHTML = `<img src="${path}/${w.name.replace(/:/g,"")}.png" onerror="this.src='https://via.placeholder.com/80?text=No+Img'"><div>${w.name}</div>`;
-        return div;
+const createCard = (w, path, starPrefix) => {
+    const div = document.createElement('div');
+    div.className = `weapon-card ${ownedWeapons.has(w.name) ? 'owned' : ''}`;
+    div.dataset.name = w.name;
+    div.onclick = () => {
+        if(selectedWeapons.has(w)) { selectedWeapons.delete(w); div.classList.remove('selected'); }
+        else { selectedWeapons.add(w); div.classList.add('selected'); }
+        updateFarmingResults();
     };
-    WEAPONS_6.forEach(w => g6.appendChild(createCard(w, '6성 무기')));
-    WEAPONS_5.forEach(w => g5.appendChild(createCard(w, '5성 무기')));
-}
+    div.innerHTML = `
+        <div class="weapon-img-container">
+            <img src="배경.png" class="layer bg-layer">
+            <img src="${path}/${w.name.replace(/:/g,"")}.png" class="layer weapon-layer" onerror="this.src='https://via.placeholder.com/240?text=No+Img'">
+            <img src="${path}/${starPrefix} 하단.png" class="layer bottom-layer">
+        </div>
+        <div>${w.name}</div>
+    `;
+    return div;
+};
+
+// 호출 부분 수정
+WEAPONS_6.forEach(w => g6.appendChild(createCard(w, '6성 무기', '6성')));
+WEAPONS_5.forEach(w => g5.appendChild(createCard(w, '5성 무기', '5성')));}
+    
 // updateFarmingResults 함수에서 무기 리스트의 'owned' 클래스 상태를 최신화하도록 수정
 function updateFarmingResults() {
     // 1. 추천 파밍지 탭의 무기 리스트(상단 그리드)에 있는 체크 표시도 갱신
@@ -663,46 +737,55 @@ async function recognizeLoop() {
 }
 
 // NEW: 스캐너 결과 업데이트 (이미지 카드형 + 보유 시각화 + 클릭 이벤트)
+// [중요] 함수 밖 전역 변수로 선언 (마지막 인식 결과 저장용)
+let lastDetectedResults = []; 
+
 function updateScannerMatch(opts) {
+    // 1. 인식된 결과가 들어오면 저장, 없으면 기존 저장된 값 사용
+    if (opts && Array.isArray(opts)) {
+        lastDetectedResults = opts;
+    } else if (!opts && lastDetectedResults.length === 0) {
+        return; 
+    }
+    
+    const currentOpts = opts || lastDetectedResults;
     const show5 = document.getElementById('check-5star').checked;
     const minMatch = document.getElementById('include-2match').checked ? 2 : 3;
+    
+    // 5성 섹션 보이기/숨기기
     document.getElementById('section-5star').style.display = show5 ? 'block' : 'none';
 
     const process = (list, targetId, imgPath) => {
-        // 매칭된 무기 찾기
         const matches = list.map(w => ({ 
             ...w, 
-            count: w.opts.filter(o => opts.includes(o)).length,
-            isOwned: ownedWeapons.has(w.name) // 보유 여부 체크
+            count: w.opts.filter(o => currentOpts.includes(o)).length,
+            isOwned: ownedWeapons.has(w.name)
         })).filter(m => m.count >= minMatch).sort((a,b) => b.count - a.count);
         
         const targetDiv = document.getElementById(targetId);
-
         if (matches.length === 0) {
             targetDiv.innerHTML = `<div style="color:#666; font-size:0.9em; padding:10px; grid-column: 1/-1;">매칭된 무기가 없습니다.</div>`;
             return;
         }
 
-        // [수정] onclick 이벤트 및 data-name 추가
-        targetDiv.innerHTML = matches.map(m => `
-            <div class="weapon-card ${m.isOwned ? 'owned' : ''}" 
-                 data-name="${m.name}"
-                 onclick="toggleWeaponStatus('${m.name}')"
-                 style="padding:5px;">
-                <img src="${imgPath}/${m.name.replace(/:/g,"")}.png" onerror="this.src='https://via.placeholder.com/80?text=IMG'">
-                <div style="font-weight:bold; font-size:0.85em; color:${m.isOwned ? 'var(--green)' : '#eee'}; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
-                    ${m.name}
+        targetDiv.innerHTML = matches.map(m => {
+            const starPrefix = imgPath.includes('6성') ? '6성' : '5성';
+            return `
+            <div class="weapon-card ${m.isOwned ? 'owned' : ''}" data-name="${m.name}" onclick="toggleWeaponStatus('${m.name}')" style="padding:5px;">
+                <div class="weapon-img-container">
+                    <img src="배경.png" class="layer bg-layer">
+                    <img src="${imgPath}/${m.name.replace(/:/g,"")}.png" class="layer weapon-layer">
+                    <img src="${imgPath}/${starPrefix} 하단.png" class="layer bottom-layer">
                 </div>
-                <div class="match-badge" style="background:${m.count === 3 ? 'var(--gold)' : '#555'}; color:${m.count===3?'#000':'#fff'};">
-                    ${m.count}개 일치
-                </div>
-            </div>
-        `).join('');
+                <div style="font-weight:bold; font-size:0.85em;">${m.name}</div>
+                <div class="match-badge">${m.count}개 일치</div>
+            </div>`;
+        }).join('');
     };
+
     process(WEAPONS_6, 'list-6star', '6성 무기');
     if(show5) process(WEAPONS_5, 'list-5star', '5성 무기');
 }
-
 // --- 초기화 ---
 async function init() {
     initCollectionUI(); // NEW: 보유 현황 탭 초기화
@@ -711,6 +794,9 @@ async function init() {
     try {
         worker = await Tesseract.createWorker('kor');
         await worker.setParameters({ tessedit_pageseg_mode: '7' });
+        // 체크박스 클릭 시 스캐너 화면 즉시 갱신
+        document.getElementById('check-5star').onchange = () => updateScannerMatch();
+        document.getElementById('include-2match').onchange = () => updateScannerMatch();
         document.getElementById('start-btn').disabled = false;
         document.getElementById('start-btn').textContent = "화면 공유 시작";
     } catch (e) { console.error(e); }
@@ -741,4 +827,3 @@ init();
 </script>
 </body>
 </html>
-

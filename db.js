@@ -69,6 +69,15 @@ const WEAPONS_5 = [ { name: "강철의 여운", opts: ["민첩", "물리피해",
                    { name: "숭배의 시선", opts: ["민첩", "물리피해", "어둠"] }, 
                    { name: "십이문", opts: ["민첩", "공격력", "고통"] }, 
                    { name: "이성적인 작별", opts: ["힘", "열기피해", "추격"] }, 
-                   { name: "작품: 중생", opts: ["민첩", "아츠피해", "고통"] }, { name: "중심력", opts: ["의지", "전기피해", "억제"] }, { name: "최후의 메아리", opts: ["힘", "생명력", "의료"] }, { name: "키메라의 정의", opts: ["힘", "궁극기획득효율", "잔혹"] }, { name: "황무지의 방랑자", opts: ["지능", "전기피해", "고통"] }, { name: "O.B.J. 벨로시투스", opts: ["민첩", "궁극기획득효율", "방출"] }, { name: "O.B.J. 스파이크", opts: ["의지", "물리피해", "고통"] }, { name: "O.B.J. 아츠 아이덴티티", opts: ["지능", "아츠강도", "추격"] }, { name: "O.B.J. 엣지 오브 라이트", opts: ["민첩", "공격력", "흐름"] }, { name: "O.B.J. 헤비 버든", opts: ["힘", "생명력", "효율"] } ];
+                   { name: "작품: 중생", opts: ["민첩", "아츠피해", "고통"] }, 
+                   { name: "중심력", opts: ["의지", "전기피해", "억제"] }, 
+                   { name: "최후의 메아리", opts: ["힘", "생명력", "의료"] }, 
+                   { name: "키메라의 정의", opts: ["힘", "궁극기획득효율", "잔혹"] }, 
+                   { name: "황무지의 방랑자", opts: ["지능", "전기피해", "고통"] }, 
+                   { name: "O.B.J. 벨로시투스", opts: ["민첩", "궁극기획득효율", "방출"] }, 
+                   { name: "O.B.J. 스파이크", opts: ["의지", "물리피해", "고통"] }, 
+                   { name: "O.B.J. 아츠 아이덴티티", opts: ["지능", "아츠강도", "추격"] }, 
+                   { name: "O.B.J. 엣지 오브 라이트", opts: ["민첩", "공격력", "흐름"] }, 
+                   { name: "O.B.J. 헤비 버든", opts: ["힘", "생명력", "효율"] } ];
 
 window.CONFIGS=CONFIGS;window.PLACES=PLACES;window.PRIMARY_STATS=PRIMARY_STATS;window.EXTRA_STATS=EXTRA_STATS;window.WEAPONS_6=WEAPONS_6;window.WEAPONS_5=WEAPONS_5;

@@ -55,7 +55,7 @@ const RULES = [
   { value: "자연피해", regex: /자[연현]/ },
 
   // ---- 서브 옵션 ----
-  { value: "방출", regex: /방[출줄쥴]|밤출/ },
+  { value: "방출", regex: /방[출줄쥴]|밤출|크/ },
   { value: "흐름", regex: /흐[름륾]|으름/ },
   { value: "고통", regex: /고[통충동]/ },
   { value: "어둠", regex: /^어[둠눔롬놈돔룸룸니ㄴㅁ]$|^[어엄움]$/ },
@@ -63,13 +63,13 @@ const RULES = [
   // ---- 기타 ----
   { value: "억제", regex: /억[제재]/ },
   { value: "잔혹", regex: /잔[혹흑]/ },
-  { value: "추격", regex: /추[격굑]/ },
+  { value: "추격", regex: /추[격굑]|족/ },
   { value: "기예", regex: /기[예얘]/ },
   { value: "골절", regex: /골[절졀]/ },
   { value: "분쇄", regex: /분[쇄쉐]/ },
   { value: "사기", regex: /사[기귀]/ },
   { value: "의료", regex: /의[료로]/ },
-  { value: "효율", regex: /[효요][율률]/ }
+  { value: "효율", regex: /[효요][율률]|푸/ }
 ];
 
 // 4) 최종 normalize

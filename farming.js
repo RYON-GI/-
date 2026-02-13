@@ -232,10 +232,6 @@ function initFarmingUI({ WEAPONS_6, WEAPONS_5, STATE, updateFarmingResults }) {
 
       // 1) 종결(보유) 숨김
       if (STATE.hideOwned && STATE.ownedWeapons.has(name)) {
-        if (card.classList.contains('selected')) {
-          card.classList.remove('selected');
-          deselectByName(name);
-        }
         card.style.display = 'none';
         return;
       }
@@ -259,14 +255,6 @@ function initFarmingUI({ WEAPONS_6, WEAPONS_5, STATE, updateFarmingResults }) {
           if (set && set.has(name)) { visible = true; break; }
         }
       }
-
-      if (!visible) {
-        if (card.classList.contains('selected')) {
-          card.classList.remove('selected');
-          deselectByName(name);
-        }
-      }
-
       card.style.display = visible ? '' : 'none';
     });
 
@@ -590,7 +578,7 @@ function updateRegionResultsFactory(deps) {
     const filter = [...STATE.regionBases];
     if (STATE.regionExtra) filter.push(STATE.regionExtra);
 
-    const matches = [...WEAPONS_6, ...(STATE.regionShow5 ? WEAPONS_5 : [])]
+    const matches = [...WEAPONS_6, ...(STATE.regionShow5Star ? WEAPONS_5 : [])]
       .filter(w => w.opts.every(o => selectedRegion.opts.includes(o)) && w.opts.some(o => filter.includes(o)) && !(STATE.hideOwned && STATE.ownedWeapons.has(w.name)))
       .map(w => {
         const is6 = WEAPONS_6.some(s => s.name === w.name);

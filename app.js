@@ -114,10 +114,7 @@
   }
 
   async function init() {
-    // 1) 가이드
-    Endfield.initGuide?.();
-
-    // 2) 보유 현황(저장값 로드 포함)
+    // 1) 보유 현황(저장값 로드 포함)
     Endfield.initCollectionUI({
       WEAPONS_6: window.WEAPONS_6,
       WEAPONS_5: window.WEAPONS_5,
@@ -125,7 +122,7 @@
       toggleWeaponStatus,
     });
 
-    // 3) 추천 파밍지
+    // 2) 추천 파밍지
     updateFarmingResultsFn = () => Endfield.updateFarmingResults({ PLACES: window.PLACES, STATE });
     Endfield.initFarmingUI({
       WEAPONS_6: window.WEAPONS_6,
@@ -135,7 +132,7 @@
     });
     updateFarmingResultsFn();
 
-    // 4) 지역별 파밍지
+    // 3) 지역별 파밍지
     const updateRegionResults = Endfield.updateRegionResultsFactory({
       STATE,
       WEAPONS_6: window.WEAPONS_6,
@@ -198,6 +195,22 @@
   window.toggleWeaponStatus = toggleWeaponStatus;
   window.resetWeaponSelection = () => Endfield.resetWeaponSelectionImpl({ STATE }, updateFarmingResultsFn);
   window.resetRegionFilters = () => Endfield.resetRegionFiltersImpl({ STATE }, selectRegionFn);
+  // 가이드 사이드탭 전환(전역)
+  window.switchGuide = function(name, el) {
+    document.querySelectorAll('.guide-side-tab')
+      .forEach(e => e.classList.remove('active'));
+    if (el) el.classList.add('active');
+    document.querySelectorAll('.guide-content')
+      .forEach(e => e.classList.remove('active'));
+    const target = document.getElementById('guide-' + name);
+    if (target) target.classList.add('active');
+  };
+
+  // 문의하기(전역)
+  window.openInquiry = function() {
+    window.open('https://open.kakao.com/o/sgkYrigi', '_blank');
+  };
+
 
   init();
 })();

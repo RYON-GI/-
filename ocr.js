@@ -63,7 +63,7 @@ const RULES = [
   // ---- 기타 ----
   { value: "억제", regex: /억[제재]/ },
   { value: "잔혹", regex: /잔[혹흑]/ },
-  { value: "추격", regex: /추[격굑]|^족$|구슬|^세$|^리$/ },
+  { value: "추격", regex: /추[격굑]|족/ },
   { value: "기예", regex: /기[예얘]/ },
   { value: "골절", regex: /골[절졀]/ },
   { value: "분쇄", regex: /분[쇄쉐]/ },

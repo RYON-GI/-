@@ -215,7 +215,7 @@
 <body>
 <div class="tab-container">
     <div id="tab-guide" class="tab active" onclick="switchTab('guide')">가이드</div>
-    <div id="tab-collection" class="tab" onclick="switchTab('collection')">보유 현황 관리</div>
+    <div id="tab-collection" class="tab" onclick="switchTab('collection')">종결 보유 현황</div>
     <div id="tab-farming" class="tab" onclick="switchTab('farming')">추천 파밍지</div>
     <div id="tab-search" class="tab" onclick="switchTab('search')">기질 검색 (스캐너)</div>
 </div>
@@ -227,7 +227,7 @@
 
     <!-- 사이드 탭 -->
     <div style="width:220px; border-right:1px solid #333; padding-right:10px;">
-      <div class="guide-side-tab active" onclick="switchGuide('collection', this)">보유 현황</div>
+      <div class="guide-side-tab active" onclick="switchGuide('collection', this)">종결 보유 현황</div>
       <div class="guide-side-tab" onclick="switchGuide('region', this)">지역별 파밍지</div>
       <div class="guide-side-tab" onclick="switchGuide('weapon', this)">무기별 파밍지</div>
       <div class="guide-side-tab" onclick="switchGuide('warehouse', this)">창고 검색</div>
@@ -238,11 +238,12 @@
     <!-- 내용 영역 -->
     <div style="flex:1;">
 
-      <!-- 보유 현황 -->
+      <!-- 종결 보유 현황 -->
       <div id="guide-collection" class="guide-content active">
         <img src="보유 현황 가이드.png" style="width:100%; margin-bottom:20px;">
         <ul>
-          <li>① 보유 현황 가이드 주의점 입니다.</li>
+          <li>본인이 이미 기질을 획득한 장비를 선택하는 장소 입니다.</li>
+          <li>① 종결 보유 현황 가이드 주의점 입니다.</li>
           <li>② 종결 기질 보유 무기 선택 박스 입니다.</li>
         </ul>
       </div>

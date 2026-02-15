@@ -312,51 +312,176 @@ function updateFarmingResults({ PLACES, STATE }) {
 
   const selectedListContainer = document.getElementById('total-target-opts');
   const resultContainer = document.getElementById('farming-results-container');
-  if (!selectedListContainer || !resultContainer) return;
+  if (!resultContainer) return;
 
-  if (STATE.selectedWeapons.size === 0) {
-    selectedListContainer.innerHTML = `<span style="color:#666; font-size:0.85em;">무기를 선택하면 상세 정보가 표시됩니다.</span>`;
+  // 1) 📊 선택 무기 영역 제거(숨김)
+  if (selectedListContainer) {
+    selectedListContainer.innerHTML = '';
+    selectedListContainer.style.display = 'none';
+  }
+
+  if (!STATE.selectedWeapons || STATE.selectedWeapons.size === 0) {
     resultContainer.innerHTML = `<div style="text-align:center; padding: 40px; color:#666;">선택된 무기가 없습니다.</div>`;
     return;
   }
 
-  selectedListContainer.innerHTML = Array.from(STATE.selectedWeapons).map(w => `
-    <div style="background: rgba(255,255,255,0.05); padding:10px 12px; border-radius:6px; margin-bottom:6px; border-left:3px solid var(--gold);">
-      <div style="font-weight:bold; font-size:0.9em; color:var(--gold);">${w.name} ${STATE.ownedWeapons.has(w.name) ? '<span style="color:var(--green)">(✔)</span>' : ''}</div>
-      <div style="font-size:0.8em; color:#bbb; margin-top:2px;">필요: ${w.opts.join(', ')}</div>
-    </div>
-  `).join('');
+  const selectedArr = Array.from(STATE.selectedWeapons);
+  const singlePick = selectedArr.length === 1;
+  const picked = singlePick ? selectedArr[0] : null;
+
+  // 후보 무기 풀(5성 표시 토글 반영)
+  const candidates = STATE.show5Star ? [...WEAPONS_6, ...WEAPONS_5] : [...WEAPONS_6];
+
+  // 유틸: 이 지역에서 파밍 가능한 무기(후보 풀 기준)
+  const farmableInPlace = (place) =>
+    candidates.filter(w => w.opts.every(opt => place.opts.includes(opt)));
+
+  // 기초 속성 세트(지역별 파밍지와 동일한 PRIMARY_STATS를 가능하면 사용)
+  const baseSet = new Set((typeof PRIMARY_STATS !== 'undefined' && Array.isArray(PRIMARY_STATS)) ? PRIMARY_STATS : []);
 
   const results = PLACES.map(p => {
-    const matchedWeapons = Array.from(STATE.selectedWeapons).filter(w => w.opts.every(opt => p.opts.includes(opt)));
-    const optCountMap = {};
-    matchedWeapons.forEach(w => w.opts.forEach(o => { optCountMap[o] = (optCountMap[o] || 0) + 1; }));
+    // 선택 무기 중 이 지역에서 파밍 가능한 것
+    const matchedSelected = selectedArr.filter(w => w.opts.every(opt => p.opts.includes(opt)));
+
+    // (핵심) 단일 선택이면: '선택 무기'를 파밍할 수 있는 지역만 의미가 있음
+    if (singlePick && picked && !picked.opts.every(opt => p.opts.includes(opt))) {
+      return null; // 나중에 필터링
+    }
+
+    // 4) 단일 선택이면: 선택 무기 + 같이 파밍 가능한 무기(전체 후보) 표시
+    // 5) 다중 선택이면: 선택한 무기들만 표시
+    let shownWeapons = [];
+    if (singlePick) {
+      shownWeapons = farmableInPlace(p);
+
+      // ✅ "같이 파밍 가능" 필터:
+      // 선택 무기의 2/3옵(=기초 속성 제외한 심화 옵션) 중 하나라도 겹치는 무기만 남김
+      // 단, 선택 무기 본인은 항상 표시
+      const pickedAdvanced = (picked && picked.opts)
+        ? picked.opts.filter(o => !baseSet.has(o))
+        : [];
+
+      if (pickedAdvanced.length > 0) {
+        shownWeapons = shownWeapons.filter(w =>
+          (picked && w.name === picked.name) ||
+          w.opts.some(o => pickedAdvanced.includes(o))
+        );
+      }
+
+      // 종결 숨김이 켜져 있으면 보유 무기는 숨기되, '선택 무기'는 항상 표시
+      if (STATE.hideOwned) {
+        shownWeapons = shownWeapons.filter(w => !STATE.ownedWeapons.has(w.name) || (picked && w.name === picked.name));
+      }
+    } else {
+      shownWeapons = matchedSelected;
+      if (STATE.hideOwned) {
+        shownWeapons = shownWeapons.filter(w => !STATE.ownedWeapons.has(w.name));
+      }
+    }
+
+    // 겹치는 옵션(초록 표시) 계산: 표시 대상(shownWeapons) 기준
+    const overlapCountMap = {};
+    shownWeapons.forEach(w => w.opts.forEach(o => { overlapCountMap[o] = (overlapCountMap[o] || 0) + 1; }));
+    const dupSet = new Set(Object.entries(overlapCountMap).filter(([,c]) => c > 1).map(([o]) => o));
+
+    // 추천 속성(기초 3 + 심화 1): 단일 선택은 shownWeapons(선택 무기 파밍이 가능한 지역의 '같이 파밍' 풀) 기준
+    // 다중 선택은 matchedSelected(선택 무기들) 기준
+    const recSource = singlePick ? shownWeapons : matchedSelected;
+
+    // 지역별 파밍지처럼, 종결 숨김이 켜져 있으면 미종결 기준으로 추천 속성 산정
+    const recWeapons = STATE.hideOwned ? recSource.filter(w => !STATE.ownedWeapons.has(w.name)) : recSource;
+
+    const countMap = {};
+    recWeapons.forEach(w => w.opts.forEach(opt => { countMap[opt] = (countMap[opt] || 0) + 1; }));
+
+    const baseRecs = Object.entries(countMap)
+      .filter(([opt]) => baseSet.has(opt))
+      .sort((a,b) => b[1] - a[1])
+      .slice(0,3)
+      .map(v => v[0]);
+
+    const extraRec = Object.entries(countMap)
+      .filter(([opt]) => !baseSet.has(opt))
+      .sort((a,b) => b[1] - a[1])[0];
+
+    const recFilter = [...baseRecs];
+    if (extraRec && extraRec[0]) recFilter.push(extraRec[0]);
+
     return {
       name: p.name,
-      matchedCount: matchedWeapons.length,
-      weaponNames: matchedWeapons.map(w => w.name),
-      optDetails: Object.entries(optCountMap).map(([name, count]) => ({ name, isDuplicate: count > 1 }))
+      matchedCount: matchedSelected.length,
+      shownWeapons,
+      dupSet,
+      optDetails: recFilter.map(name => ({ name, isDuplicate: dupSet.has(name) }))
     };
-  }).sort((a,b) => b.matchedCount - a.matchedCount);
+  }).filter(Boolean) // 단일 선택이면 선택 무기 파밍 불가능 지역 제외
+    .filter(r => singlePick ? true : r.matchedCount > 0) // ✅ 다중 선택이면 파밍 불가능 지역 제거
+    .sort((a,b) => b.matchedCount - a.matchedCount);
 
-  resultContainer.innerHTML = results.map(r => `
-    <div class="result-region-card ${r.matchedCount > 0 ? 'best' : ''}" style="flex-direction: column; align-items: flex-start; gap: 10px; padding: 15px;">
-      <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
-        <strong style="font-size:1.1em; color:${r.matchedCount > 0 ? 'var(--primary)' : '#888'}">${r.name}</strong>
-        <span style="background:var(--gold); color:#000; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:bold;">${r.matchedCount}개 종결 가능</span>
-      </div>
-      ${r.matchedCount > 0 ? `
-        <div style="width:100%; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border: 1px solid #333;">
-          <div style="font-size:0.75em; color:#aaa; margin-bottom:8px; font-weight:bold;">🎯 추천 파밍 옵션 (초록색: 겹침)</div>
+  // 렌더
+  resultContainer.innerHTML = results.map(r => {
+    const canFarm = r.matchedCount > 0; // 다중 선택일 때만 의미 있음(단일은 이미 필터됨)
+
+    const weaponLines = r.shownWeapons.map(w => {
+      const isPicked = singlePick && picked && w.name === picked.name;
+
+      const optsHtml = w.opts.map(o => {
+        const isDup = r.dupSet.has(o);
+        return `<span style="${isDup ? 'color:#2ecc71; font-weight:bold;' : 'color:#aaa;'}">${o}</span>`;
+      }).join(', ');
+
+      return `
+        <div style="
+          margin-top:6px;
+          padding:6px 8px;
+          border-radius:6px;
+          ${isPicked ? 'border:1px solid var(--primary); background:rgba(255, 215, 0, 0.08);' : 'border:1px solid transparent;'}
+        ">
+          <span style="font-weight:bold; ${isPicked ? 'color:#ffd54a;' : 'color:var(--primary);'}">${w.name}</span>
+          ${isPicked ? `<span style="margin-left:6px; font-size:0.75em; color:#ffd54a;">(선택)</span>` : ``}
+          <span style="color:#777;"> — </span>
+          <span style="font-size:0.85em;">${optsHtml}</span>
+        </div>
+      `;
+    }).join('');
+
+    const optPills = (r.optDetails && r.optDetails.length > 0)
+      ? r.optDetails.map(opt =>
+        `<span style="font-size:0.8em; padding:2px 8px; border-radius:4px; border:1px solid ${opt.isDuplicate ? '#28a745' : '#555'}; background:${opt.isDuplicate ? 'rgba(40, 167, 69, 0.2)' : '#222'}; color:${opt.isDuplicate ? '#2ecc71' : '#eee'};">${opt.name}</span>`
+      ).join('')
+      : `<span style="color:#555; font-size:0.85em;">-</span>`;
+
+    return `
+      <div class="result-region-card ${canFarm ? 'best' : ''}" style="flex-direction: column; align-items: flex-start; gap: 10px; padding: 15px; width:100%; box-sizing:border-box;">
+        <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+          <strong style="font-size:1.1em; color:${canFarm ? 'var(--primary)' : '#888'}">${r.name}</strong>
+          <span style="background:var(--gold); color:#000; padding:2px 8px; border-radius:10px; font-size:0.75em; font-weight:bold;">${r.matchedCount}개 종결 가능</span>
+        </div>
+
+        <div style="width:100%; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border: 1px solid #333; box-sizing:border-box; max-width:100%;">
+          <div style="font-size:0.75em; color:#aaa; margin-bottom:8px; font-weight:bold;">🎯 추천속성</div>
           <div style="display:flex; flex-wrap:wrap; gap:5px;">
-            ${r.optDetails.map(opt => `<span style="font-size:0.8em; padding:2px 8px; border-radius:4px; border:1px solid ${opt.isDuplicate ? '#28a745' : '#555'}; background:${opt.isDuplicate ? 'rgba(40, 167, 69, 0.2)' : '#222'}; color:${opt.isDuplicate ? '#2ecc71' : '#eee'};">${opt.name}</span>`).join('')}
+            ${optPills}
           </div>
         </div>
-        <div style="width:100%; font-size:0.85em; color:#ccc; line-height:1.4;"><span style="color:var(--primary); font-weight:bold;">📦 가능 무기:</span> ${r.weaponNames.join(', ')}</div>
-      ` : `<div style="font-size:0.85em; color:#555; text-align:center; width:100%;">파밍 불가능</div>`}
-    </div>
-  `).join('');
+
+        <div style="width:100%; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border: 1px solid #333; box-sizing:border-box; max-width:100%;">
+          <div style="font-size:0.75em; color:#aaa; margin-bottom:6px; font-weight:bold;">
+            📦 이 지역에서 획득 가능 무기 (무기명 + 속성)
+            <br>
+            <span style="color:#666; font-weight:normal;"> — 겹치는 옵션은 초록색</span>
+            <br>
+            ${singlePick ? `<span style="color:#666; font-weight:normal;"> — 단일 선택이라 같이 파밍 가능한 무기까지 표시</span>` : ``}
+          </div>
+          <div style="font-size:0.9em; color:#ccc; line-height:1.45;">
+            ${weaponLines || `<span style="color:#555;">표시할 무기가 없습니다.</span>`}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
+
 
 function resetWeaponSelection({ STATE }, updateFarmingResultsFn) {
   document.querySelectorAll('.weapon-card').forEach(c => c.classList.remove('selected'));

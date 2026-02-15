@@ -201,6 +201,40 @@
             color: #ff6b6b;
             font-weight: 600;
          }
+        /* 오른쪽 패널에서 카드가 1~2px 잘리는 현상 방지 */
+         .result-region-card { box-sizing: border-box; width: 100%; }
+         #farming-results-container { padding-right: 6px; box-sizing: border-box; }
+
+         #farming-results-container {
+           padding-right: 10px;
+           overflow-x: visible !important;
+           box-sizing: border-box;
+          }
+
+          .result-region-card,
+          .result-region-card.best {
+            width: calc(100% - 2px) !important;
+            box-sizing: border-box;
+            overflow: visible !important;
+            min-width: 0;
+           }
+
+          .result-region-card {
+            box-sizing: border-box;
+            width: 100%;
+           }
+
+          #farming-results-container {
+            padding-right: 6px;
+            box-sizing: border-box;
+           }
+
+          /* ⭐ 핵심 추가 */
+          .result-region-card > div {
+            box-sizing: border-box;
+            max-width: 100%;
+          }
+
   </style>
 </head>
   <!-- Google tag (gtag.js) -->
@@ -412,11 +446,7 @@
                         <h3 style="margin:0;">💡 추천 파밍지</h3>
                         <button onclick="resetWeaponSelection()" style="padding:4px 10px; font-size:0.8em; background:#444;">초기화</button>
                     </div>
-                    <div class="target-opt-box">
-                        <div style="font-size:0.9em; font-weight:bold; color:#aaa;">📊 선택 무기</div>
-                        <div id="total-target-opts" class="opt-tag-container"><span style="color:#666;">무기를 선택해 주세요.</span></div>
-                    </div>
-                    <div id="farming-results-container"></div>
+                                        <div id="farming-results-container"></div>
                 </div>
             </div>
         </div>
